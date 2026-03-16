@@ -141,9 +141,11 @@ export default function ModDetailPage() {
             </button>
             <div
               className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center border border-[#2a2a2a]"
-              style={{ backgroundColor: mod.iconBg }}
+              style={{ backgroundColor: mod.iconFile ? "#1a1a1a" : mod.iconBg }}
             >
-              <IconComponent className="w-5 h-5" style={{ color: mod.iconColor }} />
+              {mod.iconFile
+                ? <img src={mod.iconFile} alt={mod.name} className="w-6 h-6 object-contain rounded" />
+                : <IconComponent className="w-5 h-5" style={{ color: mod.iconColor }} />}
             </div>
             <h1 className="text-[17px] font-semibold text-[#e8e8e8] truncate">{mod.name}</h1>
             <span className="flex-shrink-0 px-2 py-0.5 bg-[#1c1c1c] text-[11px] text-[#555555] rounded font-mono border border-[#222222]">

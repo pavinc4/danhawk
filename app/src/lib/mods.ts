@@ -13,6 +13,7 @@ interface RawMod {
   icon: string;
   icon_color: string;
   icon_bg: string;
+  icon_file: string;
   mod_type: string;
   removable: boolean;
   editable: boolean;
@@ -36,6 +37,7 @@ function mapMod(raw: RawMod): Mod {
     icon: raw.icon,
     iconColor: raw.icon_color,
     iconBg: raw.icon_bg,
+    iconFile: raw.icon_file || undefined,
     modType: raw.mod_type as "official" | "custom",
     removable: raw.removable,
     editable: raw.editable,

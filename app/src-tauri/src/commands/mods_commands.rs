@@ -8,6 +8,23 @@ use once_cell::sync::Lazy;
 use crate::core::{error::DanhawkError, logger, paths};
 use crate::engines;
 
+// ── base64 encoder (no external crate) ───────────────────────────────────────
+
+fn base64_encode(input: &[u8]) -> String {
+    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity((input.len() + 2) / 3 * 4);
+    for chunk in input.chunks(3) {
+        let b0 = chunk[0] as usize;
+        let b1 = if chunk.len() > 1 { chunk[1] as usize } else { 0 };
+        let b2 = if chunk.len() > 2 { chunk[2] as usize } else { 0 };
+        out.push(CHARS[(b0 >> 2)] as char);
+        out.push(CHARS[((b0 & 3) << 4) | (b1 >> 4)] as char);
+        out.push(if chunk.len() > 1 { CHARS[((b1 & 0xf) << 2) | (b2 >> 6)] as char } else { '=' });
+        out.push(if chunk.len() > 2 { CHARS[b2 & 0x3f] as char } else { '=' });
+    }
+    out
+}
+
 // ── Manifest ──────────────────────────────────────────────────────────────────
 
 #[derive(Deserialize, Clone)]
@@ -51,6 +68,7 @@ pub struct ModInfo {
     pub icon:        String,
     pub icon_color:  String,
     pub icon_bg:     String,
+    pub icon_file:   String,
     pub mod_type:    String,
     pub removable:   bool,
     pub editable:    bool,
@@ -146,6 +164,30 @@ fn discover_mods() -> Vec<ModInfo> {
 
         logger::info(&format!("[mods] loaded: {} ({})", manifest.id, manifest.engine));
         let entry_path = dir.join(&manifest.entry);
+
+        // Look for an icon file in the extension folder (icon.png, icon.jpg, icon.ico, icon.svg, icon.webp)
+        let icon_file = ["icon.png", "icon.jpg", "icon.jpeg", "icon.ico", "icon.svg", "icon.webp"]
+            .iter()
+            .find_map(|name| {
+                let p = dir.join(name);
+                if p.exists() { Some(p) } else { None }
+            })
+            .and_then(|p| {
+                let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+                let mime = match ext.as_str() {
+                    "png"  => "image/png",
+                    "jpg" | "jpeg" => "image/jpeg",
+                    "ico"  => "image/x-icon",
+                    "svg"  => "image/svg+xml",
+                    "webp" => "image/webp",
+                    _      => "image/png",
+                };
+                fs::read(&p).ok().map(|bytes| {
+                    let b64 = base64_encode(&bytes);
+                    format!("data:{};base64,{}", mime, b64)
+                })
+            })
+            .unwrap_or_default();
         result.push(ModInfo {
             slug:        manifest.id.clone(),
             id:          manifest.id,
@@ -157,6 +199,7 @@ fn discover_mods() -> Vec<ModInfo> {
             icon:        manifest.icon,
             icon_color:  manifest.icon_color,
             icon_bg:     manifest.icon_bg,
+            icon_file,
             targets:     manifest.targets,
             details:     manifest.details,
             source_code: manifest.source_code,

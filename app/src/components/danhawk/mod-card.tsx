@@ -27,8 +27,10 @@ function InstallModal({ mod, onConfirm, onViewDetails, onClose }: {
       >
         <div className="flex items-center gap-3 mb-3">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center border border-[#2a2a2a] flex-shrink-0"
-            style={{ backgroundColor: mod.iconBg }}>
-            <IconComponent className="w-4 h-4" style={{ color: mod.iconColor }} />
+            style={{ backgroundColor: mod.iconFile ? "#1a1a1a" : mod.iconBg }}>
+            {mod.iconFile
+              ? <img src={mod.iconFile} alt={mod.name} className="w-5 h-5 object-contain rounded" />
+              : <IconComponent className="w-4 h-4" style={{ color: mod.iconColor }} />}
           </div>
           <div className="min-w-0">
             <p className="text-[13px] font-semibold text-[#e8e8e8] truncate">{mod.name}</p>
@@ -126,9 +128,11 @@ export function ModCard({ mod }: ModCardProps) {
           <div className="flex-shrink-0">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center border border-[#2a2a2a] transition-colors duration-200 group-hover:border-[#333333]"
-              style={{ backgroundColor: mod.iconBg }}
+              style={{ backgroundColor: mod.iconFile ? "#1a1a1a" : mod.iconBg }}
             >
-              <IconComponent className="w-5 h-5" style={{ color: mod.iconColor }} />
+              {mod.iconFile
+                ? <img src={mod.iconFile} alt={mod.name} className="w-6 h-6 object-contain rounded" />
+                : <IconComponent className="w-5 h-5" style={{ color: mod.iconColor }} />}
             </div>
           </div>
           <div className={`flex-1 min-w-0 overflow-hidden ${installed ? "pr-16" : ""}`}>

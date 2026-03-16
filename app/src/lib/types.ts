@@ -15,6 +15,7 @@ export interface Mod {
   editable: boolean;
   installed: boolean;
   enabled: boolean;
+  iconFile?: string;
   details?: string;
   sourceCode?: string;
   changelog?: ChangelogEntry[];

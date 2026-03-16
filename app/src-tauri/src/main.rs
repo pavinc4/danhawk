@@ -22,7 +22,6 @@ fn main() {
             commands::mods_commands::toggle_mod,
             commands::settings_commands::get_settings,
             commands::settings_commands::save_settings,
-            commands::mods_commands::get_debug_info,
         ])
         .setup(|app| {
             // ── Tray icon + menu ───────────────────────────────────────────

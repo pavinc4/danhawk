@@ -347,22 +347,3 @@ pub fn toggle_mod(mod_id: String, enabled: bool) -> Result<bool, String> {
         }
     }
 }
-
-#[tauri::command]
-pub fn get_debug_info() -> serde_json::Value {
-    let ext_dir = paths::extensions_dir();
-    let ext_exists = ext_dir.exists();
-    let ext_str = ext_dir.to_string_lossy().to_string();
-    let state_str = paths::state_file().to_string_lossy().to_string();
-    let exe_str = std::env::current_exe().unwrap_or_default().to_string_lossy().to_string();
-    let cwd_str = std::env::current_dir().unwrap_or_default().to_string_lossy().to_string();
-    let mods_count = REGISTRY.lock().unwrap().mods.len();
-    serde_json::json!({
-        "extensions_dir": ext_str,
-        "extensions_dir_exists": ext_exists,
-        "state_file": state_str,
-        "exe": exe_str,
-        "cwd": cwd_str,
-        "mods_count": mods_count
-    })
-}

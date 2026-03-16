@@ -10,18 +10,6 @@ export default function ExplorePage() {
   const [activeCategory, setActiveCategory] = useState("All");
   const { mods, loading } = useModStore();
 
-  // Temporary debug — remove after fixing path
-  const [debugInfo, setDebugInfo] = useState<string>("");
-  const runDebug = async () => {
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const info = await invoke("get_debug_info");
-      setDebugInfo(JSON.stringify(info, null, 2));
-    } catch (e) {
-      setDebugInfo(String(e));
-    }
-  };
-
   const filteredMods = mods.filter((mod) => {
     const q = searchQuery.toLowerCase();
     const matchSearch =
@@ -36,12 +24,6 @@ export default function ExplorePage() {
   return (
     <div className="bg-[#0d0d0d] min-h-full">
       <main className="px-8 pb-24">
-        {/* DEBUG — remove after fixing */}
-        <div className="mb-3">
-          <button onClick={runDebug} className="px-3 py-1 bg-[#222] border border-[#333] rounded text-[11px] text-[#888] hover:text-white transition-colors">Debug: check extension path</button>
-          {debugInfo && <pre className="mt-2 p-3 bg-[#0a0a0a] border border-[#222] rounded text-[10px] text-[#4ade80] overflow-auto max-h-40">{debugInfo}</pre>}
-        </div>
-
         <div className="flex items-center gap-2 mb-4 mt-2">
           <div className="flex-1 relative group">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#555555] group-focus-within:text-[#777777] transition-colors duration-150" />
@@ -67,8 +49,8 @@ export default function ExplorePage() {
               key={cat}
               onClick={() => setActiveCategory(cat)}
               className={`px-3 py-1 rounded-full text-[12px] font-medium border transition-all duration-150 ${activeCategory === cat
-                  ? "bg-[#3b8bdb] border-[#3b8bdb] text-white"
-                  : "bg-transparent border-[#222222] text-[#888888] hover:border-[#333333] hover:text-[#e8e8e8]"
+                ? "bg-[#3b8bdb] border-[#3b8bdb] text-white"
+                : "bg-transparent border-[#222222] text-[#888888] hover:border-[#333333] hover:text-[#e8e8e8]"
                 }`}
             >
               {cat}

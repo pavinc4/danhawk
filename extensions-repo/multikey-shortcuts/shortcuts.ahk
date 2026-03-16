@@ -2,7 +2,6 @@
 ;
 ; Sequential two-key chords:
 ;   Ctrl+Shift+W  → I  →  Wikipedia
-;   Ctrl+Shift+N  → O  →  Notepad
 ;   Ctrl+Alt+C    → H  →  ChatGPT
 ;   Ctrl+Alt+C    → O  →  Copilot
 
@@ -38,10 +37,6 @@ Disarm() {
     ArmChord("csw", "Ctrl+Shift+W  →  I: Wikipedia")
 }
 
-^+n::
-{
-    ArmChord("csn", "Ctrl+Shift+N  →  O: Notepad")
-}
 
 ^!c::
 {
@@ -57,21 +52,6 @@ Disarm() {
         return
     Disarm()
     Run "https://www.wikipedia.org"
-}
-
-~o::
-{
-    global activeChord
-    if (activeChord = "csn") {
-        Disarm()
-        Run "notepad.exe"
-        return
-    }
-    if (activeChord = "cac") {
-        Disarm()
-        Run "https://copilot.microsoft.com"
-        return
-    }
 }
 
 ~h::

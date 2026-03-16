@@ -1,0 +1,10 @@
+{
+  "id": "open-calculator",
+  "name": "Open Calculator",
+  "description": "Opens the Windows Calculator app",
+  "version": "1.0.0",
+  "engine": "command",
+  "entry": "run.ps1",
+  "icon": "🧮",
+  "tags": ["utility", "calculator", "math"]
+}

@@ -1,4 +1,2 @@
-# on_disable hook — runs when toggle is turned OFF
-# Removes registry key so Explorer context menu disappears instantly
-
-Remove-Item -Path "HKCU:\Software\Classes\Directory\shell\DanhawkFolderTools" -Recurse -Force -ErrorAction SilentlyContinue
+# on_disable hook — removes registry entry
+Remove-Item -Path "HKCU:\Software\Classes\Directory\shell\DanhawkLockFolder" -Recurse -Force -ErrorAction SilentlyContinue

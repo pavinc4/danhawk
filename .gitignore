@@ -1,0 +1,11 @@
+﻿# Rust build output — gigabytes
+app/src-tauri/target/
+# Node dependencies
+app/node_modules/
+# Frontend build output
+app/dist/
+# Tauri generated schemas
+app/src-tauri/gen/
+# OS files
+.DS_Store
+Thumbs.db

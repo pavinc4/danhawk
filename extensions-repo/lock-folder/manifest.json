@@ -1,0 +1,27 @@
+{
+    "id": "lock-folder",
+    "name": "Lock Folder",
+    "version": "1.0.0",
+    "author": "Danhawk",
+    "description": "Right-click any folder in Explorer to lock or unlock it using Windows permission control.",
+    "engine": "command",
+    "entry": "enable.ps1",
+    "category": "Explorer",
+    "icon": "Lock",
+    "icon_color": "#22C55E",
+    "icon_bg": "#052e16",
+    "targets": ["global"],
+    "lifecycle": {
+        "on_enable":  "enable.ps1",
+        "on_disable": "disable.ps1"
+    },
+    "details": "# Lock Folder\n\nAdds **Lock Folder** and **Unlock Folder** as a submenu in the Explorer right-click menu.\n\n## How it works\n- Toggle **ON** — context menu appears instantly\n- Toggle **OFF** — context menu removed instantly\n- Right-click any folder → **Lock/Unlock Folder** → Lock or Unlock\n- Runs completely silent, no popup windows\n\n## Engine\nPowered by the **Command Engine** with lifecycle hooks for registry control.",
+    "source_code": "see enable.ps1 / disable.ps1",
+    "changelog": [
+        {
+            "version": "1.0.0",
+            "date": "Mar 2026",
+            "changes": ["Initial release — lifecycle-based Explorer context menu"]
+        }
+    ]
+}

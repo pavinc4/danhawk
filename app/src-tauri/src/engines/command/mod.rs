@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
+use std::path::Path;
 use std::process::{Child, Command};
 use std::sync::Mutex;
 use once_cell::sync::Lazy;
@@ -12,8 +13,6 @@ use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 // ── Windows Job Object ────────────────────────────────────────────────────────
-// One job per DanHawk process. All child processes are added to it.
-// When DanHawk dies for ANY reason (Ctrl+C, crash, kill), OS kills all members.
 
 #[cfg(windows)]
 pub mod job {
@@ -99,9 +98,81 @@ fn kill_pid(pid: u32, label: &str) {
     std::thread::sleep(std::time::Duration::from_millis(300));
 }
 
-// ── Start ─────────────────────────────────────────────────────────────────────
+// ── Hook runner ───────────────────────────────────────────────────────────────
+// Runs any supported file type and WAITS for it to finish.
+// Used for lifecycle hooks (on_enable / on_disable).
+// Supports: .ps1  .bat  .cmd  .exe  .ahk
+// This is public so engines/mod.rs can call it for any engine's lifecycle hooks.
 
-pub fn start(mod_id: &str, entry_path: &std::path::Path) -> Result<(), DanhawkError> {
+pub fn run_hook(path: &Path) -> Result<(), DanhawkError> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let path_str = path.to_str().unwrap_or("");
+    logger::info(&format!("[command-engine] run_hook: {} (.{})", path_str, ext));
+
+    let mut cmd = match ext.as_str() {
+        "ps1" => {
+            let mut c = Command::new("powershell");
+            c.args([
+                "-NonInteractive",
+                "-WindowStyle", "Hidden",
+                "-ExecutionPolicy", "Bypass",
+                "-File", path_str,
+            ]);
+            c
+        }
+        "bat" | "cmd" => {
+            let mut c = Command::new("cmd");
+            c.args(["/C", path_str]);
+            c
+        }
+        "exe" => {
+            Command::new(path_str)
+        }
+        "ahk" => {
+            let ahk = paths::ahk_exe().ok_or_else(|| {
+                DanhawkError::Engine("AutoHotkey64.exe not found".into())
+            })?;
+            let mut c = Command::new(ahk);
+            c.arg(path_str);
+            c
+        }
+        other => {
+            return Err(DanhawkError::Engine(format!(
+                "run_hook: unsupported file type '.{}' for: {}", other, path_str
+            )));
+        }
+    };
+
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    // Wait for hook to complete — hooks are setup/teardown scripts, not long-running
+    match cmd.output() {
+        Ok(out) => {
+            if !out.status.success() {
+                let stderr = String::from_utf8_lossy(&out.stderr);
+                if !stderr.trim().is_empty() {
+                    logger::warn(&format!("[command-engine] hook exited non-zero: {}", stderr));
+                }
+            }
+            Ok(())
+        }
+        Err(e) => Err(DanhawkError::Engine(format!(
+            "run_hook failed for '{}': {}", path_str, e
+        ))),
+    }
+}
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+// Spawns a LONG-RUNNING process and tracks it.
+// Only called when extension has NO on_enable lifecycle hook.
+
+pub fn start(mod_id: &str, entry_path: &Path) -> Result<(), DanhawkError> {
     let _ = stop(mod_id);
 
     let ext = entry_path
@@ -144,7 +215,6 @@ pub fn start(mod_id: &str, entry_path: &std::path::Path) -> Result<(), DanhawkEr
 
     let pid = child.id();
 
-    // Add to Job Object — child dies when DanHawk dies for any reason
     #[cfg(windows)]
     assign_to_job(&child);
 

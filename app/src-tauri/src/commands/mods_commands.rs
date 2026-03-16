@@ -337,6 +337,22 @@ pub fn restore_on_startup() {
 
     kill_orphans();
 
+    // Clean up leftover system state from hard kills (Ctrl+C, crash, task kill).
+    // shutdown() never ran in those cases so registry entries etc may still exist.
+    // Run on_disable hooks first to guarantee a clean slate before re-enabling.
+    for m in &mods {
+        if m.enabled {
+            if let Some(hook) = &m.on_disable {
+                if hook.exists() {
+                    logger::info(&format!("[startup] cleanup on_disable for '{}'", m.id));
+                    if let Err(e) = engines::run_hook(hook) {
+                        logger::warn(&format!("[startup] cleanup failed for '{}': {}", m.id, e));
+                    }
+                }
+            }
+        }
+    }
+
     // Re-enable extensions that were active last session
     for m in &mods {
         if m.enabled {
@@ -487,4 +503,33 @@ pub fn toggle_mod(mod_id: String, enabled: bool) -> Result<bool, String> {
             Err(e.into())
         }
     }
+}
+
+// ── Shutdown ──────────────────────────────────────────────────────────────────
+// Called on app quit. Runs on_disable hooks for all enabled lifecycle extensions
+// so they can clean up system state (registry entries etc), then kills all processes.
+
+pub fn shutdown() {
+    let mods: Vec<ModInfo> = {
+        let reg = REGISTRY.lock().unwrap();
+        reg.mods.values()
+            .filter(|m| m.enabled)
+            .cloned()
+            .collect()
+    };
+
+    for m in &mods {
+        if let Some(hook) = &m.on_disable {
+            if hook.exists() {
+                logger::info(&format!("[shutdown] running on_disable for '{}'", m.id));
+                if let Err(e) = engines::run_hook(hook) {
+                    logger::warn(&format!("[shutdown] on_disable failed for '{}': {}", m.id, e));
+                }
+            }
+        }
+    }
+
+    // Kill all running processes after hooks complete
+    engines::stop_all();
+    logger::info("[shutdown] all extensions stopped");
 }

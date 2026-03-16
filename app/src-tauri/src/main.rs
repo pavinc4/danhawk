@@ -14,6 +14,17 @@ use tauri::{
 fn main() {
     logger::info("[danhawk] starting up");
 
+    // ── Ctrl+C / SIGINT handler ───────────────────────────────────────────────
+    // Catches terminal kills (Ctrl+C in dev) and runs shutdown hooks before exit.
+    // This is separate from the tray Quit button which calls shutdown() directly.
+    ctrlc::set_handler(|| {
+        logger::info("[danhawk] Ctrl+C — running shutdown hooks");
+        commands::mods_commands::shutdown();
+        std::process::exit(0);
+    }).unwrap_or_else(|e| {
+        logger::warn(&format!("[danhawk] failed to set Ctrl+C handler: {}", e));
+    });
+
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             commands::mods_commands::get_mods,
@@ -33,7 +44,6 @@ fn main() {
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("Danhawk — running")
                 .menu(&menu)
-                // Left-click → show window
                 .on_tray_icon_event(|tray, event| {
                     if let TrayIconEvent::Click {
                         button: MouseButton::Left,
@@ -56,8 +66,7 @@ fn main() {
                     }
                     "quit" => {
                         logger::info("[danhawk] quit — stopping all extensions");
-                        engines::stop_all();
-                        // Remove from Windows startup if desired — for now just exit
+                        commands::mods_commands::shutdown();
                         app.exit(0);
                     }
                     _ => {}
@@ -69,7 +78,6 @@ fn main() {
             register_autostart();
 
             // ── Init Job Object — must happen before any children spawn ───
-            // Forces ALL child processes to die when DanHawk exits for any reason
             #[cfg(windows)]
             { let _ = &*engines::command::job::GLOBAL_JOB; }
 
@@ -88,19 +96,27 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error building danhawk")
         .run(|app, event| {
-            // X button hides to tray — never quits
-            if let RunEvent::WindowEvent {
-                label,
-                event: WindowEvent::CloseRequested { api, .. },
-                ..
-            } = event {
-                if label == "main" {
-                    api.prevent_close();
-                    if let Some(win) = app.get_webview_window("main") {
-                        let _ = win.hide();
+            match event {
+                // X button hides to tray — never quits
+                RunEvent::WindowEvent {
+                    label,
+                    event: WindowEvent::CloseRequested { api, .. },
+                    ..
+                } => {
+                    if label == "main" {
+                        api.prevent_close();
+                        if let Some(win) = app.get_webview_window("main") {
+                            let _ = win.hide();
+                        }
+                        logger::info("[danhawk] window hidden to tray");
                     }
-                    logger::info("[danhawk] window hidden to tray");
                 }
+                // Catch all other exit paths — taskkill, process manager, etc.
+                RunEvent::ExitRequested { .. } => {
+                    logger::info("[danhawk] exit requested — running shutdown hooks");
+                    commands::mods_commands::shutdown();
+                }
+                _ => {}
             }
         });
 }
@@ -111,7 +127,6 @@ fn main() {
 fn register_autostart() {
     use std::os::windows::process::CommandExt;
 
-    // Get path to current exe
     let exe = match std::env::current_exe() {
         Ok(p) => p,
         Err(e) => { logger::warn(&format!("[autostart] cannot get exe path: {}", e)); return; }
@@ -119,8 +134,6 @@ fn register_autostart() {
 
     let exe_str = exe.to_string_lossy().to_string();
 
-    // Write HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Danhawk = "path\to\danhawk.exe"
-    // Using reg.exe to avoid pulling in the full windows-sys crate just for this
     let result = std::process::Command::new("reg")
         .args([
             "add",
@@ -128,9 +141,9 @@ fn register_autostart() {
             "/v", "Danhawk",
             "/t", "REG_SZ",
             "/d", &exe_str,
-            "/f",   // overwrite silently
+            "/f",
         ])
-        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .creation_flags(0x08000000)
         .output();
 
     match result {

@@ -16,35 +16,47 @@ export interface Extension {
   installed: boolean;
   enabled: boolean;
   iconFile?: string;
-  // Content loaded from files by the platform — empty string means file absent
-  detailsMd: string;       // from details.md — platform renders as markdown
-  changelogMd: string;     // from changelog.md — platform renders as markdown
-  entrySource: string;     // from entry file — platform shows in Source tab
-  sourceVisible: boolean;  // false = show "private" message in Source tab
-  // UI slots declared in manifest — platform renders these generically
+  detailsMd: string;
+  changelogMd: string;
+  entrySource: string;
+  sourceVisible: boolean;
   ui?: ExtensionUI;
 }
 
-// Keep Mod as alias so existing imports don't break during transition
+// Alias — existing imports keep working
 export type Mod = Extension;
 
 export interface ExtensionUI {
+  // Zone 1 — buttons injected beside Uninstall in the action bar
   detail_actions?: DetailActionSlot[];
+  // Zone 2 — extra tabs added to the tab bar
   detail_tabs?: DetailTabSlot[];
+  // Zone 3 — side panel shown left of tab content (only when declared)
+  side_panel?: SidePanelSlot;
+  // Zone 5 — status strip at the bottom of the detail page (only when declared)
+  status_bar?: StatusBarSlot;
 }
 
-// Keep ModUI as alias
 export type ModUI = ExtensionUI;
 
 export interface DetailActionSlot {
-  type: string;
-  label: string;
+  type: string;   // maps to DETAIL_ACTION_RENDERERS key
+  label: string;  // button text — ALWAYS from manifest, never hardcoded in component
 }
 
 export interface DetailTabSlot {
-  type: string;
-  label: string;
-  id: string;
+  type: string;   // maps to DETAIL_TAB_RENDERERS key
+  label: string;  // tab name — ALWAYS from manifest, never hardcoded in component
+  id: string;     // unique id for activeTab state
+}
+
+export interface SidePanelSlot {
+  type: string;   // maps to SIDE_PANEL_RENDERERS key
+}
+
+export interface StatusBarSlot {
+  type: string;   // maps to STATUS_BAR_RENDERERS key
+  label?: string; // optional text — from manifest
 }
 
 export interface AppSettings {

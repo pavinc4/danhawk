@@ -1,15 +1,16 @@
 // ShortcutManagerSlot.tsx
-// Built-in platform renderer for slot type "shortcut-manager".
-// Any extension can declare this slot type in their manifest to get a
-// "Manage Shortcuts" button that opens the shortcut manager overlay.
-// The platform provides this capability — the extension just declares it wants it.
+// Renders the "shortcut-manager" action button.
+// Button label comes entirely from slot.label (set in manifest.json).
+// No fallback string — if label is empty in manifest, button shows nothing.
+// This component is reusable: any extension can declare type "shortcut-manager"
+// with whatever label they want and it opens the shortcut manager panel.
 
 import { useState } from "react";
 import { ShortcutManager } from "./ShortcutManager";
-import type { Mod } from "../../lib/types";
+import type { Mod, DetailActionSlot } from "../../lib/types";
 
 interface Props {
-    slot: { type: string; label: string };
+    slot: DetailActionSlot;
     mod: Mod;
 }
 
@@ -25,7 +26,7 @@ export function ShortcutManagerSlot({ slot, mod }: Props) {
                     <rect x="2" y="4" width="20" height="16" rx="3" />
                     <path d="M8 11h2M12 11h2M16 11h2M8 15h4" />
                 </svg>
-                {slot.label || "Manage Shortcuts"}
+                {slot.label}
             </button>
             {open && <ShortcutManager extId={mod.id} onClose={() => setOpen(false)} />}
         </>

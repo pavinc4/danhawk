@@ -5,15 +5,18 @@ import * as Icons from "lucide-react";
 import { cn } from "../lib/utils";
 import { StatusDot } from "../components/ui/status-dot";
 import { useModStore } from "../store/mod-store";
-import { DetailActionSlots, getDetailTabSlots, DetailTabSlotContent } from "../components/ExtensionSlots";
+import {
+  DetailActionSlots,
+  getDetailTabSlots,
+  DetailTabSlotContent,
+  DetailSidePanel,
+  DetailStatusBar,
+} from "../components/ExtensionSlots";
 
 type TabType = "details" | "source" | "changelog" | string;
 type LucideIcon = React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
-// Renders the simple markdown we write in details.md / changelog.md.
-// Supports: # headings, ## headings, - lists, **bold**, blank lines.
-// No external library — keeps bundle small.
 
 function MarkdownContent({ source }: { source: string }) {
   if (!source.trim()) return null;
@@ -49,7 +52,6 @@ function MarkdownContent({ source }: { source: string }) {
   );
 }
 
-// Renders **bold** inline within a line
 function renderInline(text: string): React.ReactNode {
   if (!text.includes("**")) return text;
   const parts = text.split(/\*\*(.*?)\*\*/g);
@@ -214,22 +216,28 @@ export default function ModDetailPage() {
   const enabled = isEnabled(mod.id);
   const installing = isInstalling(mod.id);
 
-  // Core tabs — always present
+  // Core tabs — always present regardless of manifest
   const coreTabs: { id: TabType; label: string }[] = [
     { id: "details", label: "Details" },
     { id: "source", label: "Source Code" },
     { id: "changelog", label: "Changelog" },
   ];
 
-  // Extension tabs from manifest ui.detail_tabs — only when installed
+  // Zone 2 — extension tabs from manifest, only when installed
+  // Tab label comes from slot.label in manifest — never hardcoded
   const extTabSlots = installed ? getDetailTabSlots(mod) : [];
   const allTabs = [...coreTabs, ...extTabSlots.map(t => ({ id: t.id, label: t.label }))];
+
+  // Zone 3 — side panel only declared when manifest has ui.side_panel
+  const hasSidePanel = installed && !!mod.ui?.side_panel;
 
   const IconComponent = ((Icons as unknown) as Record<string, LucideIcon>)[mod.icon] ?? Icons.Box;
 
   return (
     <div className="bg-[#0d0d0d] min-h-full">
       <main className="px-8 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-200">
+
+        {/* ── Header: icon, name, slug ───────────────────────────────────── */}
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-3 mt-4">
             <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-[#1c1c1c] rounded-md transition-colors duration-150 flex-shrink-0">
@@ -255,6 +263,8 @@ export default function ModDetailPage() {
 
           <p className="text-[12px] text-[#787878] ml-[72px] mb-4 max-w-2xl">{mod.description}</p>
 
+          {/* ── Zone 1 — action bar: toggle + Uninstall + injected buttons ── */}
+          {/* Buttons get their label from slot.label in manifest — nothing hardcoded */}
           <div className="flex items-center gap-3 ml-[72px]">
             {!installed ? (
               <>
@@ -281,14 +291,15 @@ export default function ModDetailPage() {
                   {installing ? <><Spinner />Removing...</> : "Uninstall"}
                 </button>
 
-                {/* Extension action slots — only rendered if manifest declares them */}
+                {/* Zone 1 injection point — each rendered button reads its label from slot */}
                 <DetailActionSlots mod={mod} />
               </>
             )}
           </div>
         </div>
 
-        {/* Tab bar */}
+        {/* ── Zone 2 — tab bar: core tabs + manifest tabs ───────────────── */}
+        {/* Tab labels always come from slot.label — never from component code */}
         <div className="flex items-center gap-6 border-b border-[#1e1e1e] mb-6 ml-[72px] pr-8">
           {allTabs.map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -300,57 +311,73 @@ export default function ModDetailPage() {
           ))}
         </div>
 
-        {/* Tab content */}
-        <div className="ml-[72px] pr-8">
+        {/* ── Zone 3 + content: side panel (optional) + tab content ─────── */}
+        {/* Side panel only appears when manifest declares ui.side_panel     */}
+        {/* When absent: tab content takes full width, layout unchanged       */}
+        <div className={`ml-[72px] pr-8 ${hasSidePanel ? "flex gap-0 items-start" : ""}`}>
 
-          {/* Details tab — renders details.md from disk */}
-          {activeTab === "details" && (
-            mod.detailsMd.trim()
-              ? <MarkdownContent source={mod.detailsMd} />
-              : <p className="text-[#555555] text-[13px]">No details available.</p>
-          )}
+          {/* Zone 3 — side panel (160px, only rendered when declared) */}
+          {hasSidePanel && <DetailSidePanel mod={mod} />}
 
-          {/* Source Code tab — reads entry file from disk */}
-          {activeTab === "source" && (
-            <div>
-              {!mod.sourceVisible ? (
-                <p className="text-[#555555] text-[13px]">Source code is private.</p>
-              ) : !mod.entrySource.trim() ? (
-                <p className="text-[#555555] text-[13px]">Source not available.</p>
-              ) : (
-                <div className="relative bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg overflow-hidden">
-                  <div className="absolute top-3 right-3 z-10"><CopyButton text={mod.entrySource} /></div>
-                  <pre className="p-4 pt-12 overflow-x-auto">
-                    <code className="text-[12px] font-mono">
-                      {mod.entrySource.split("\n").map((line, i) => {
-                        let color = "#888888";
-                        if (line.startsWith("//") || line.startsWith(";") || line.startsWith("#")) color = "#4a7a4a";
-                        if (line.includes("pub fn") || line.includes("use ") || line.includes("import ")) color = "#5a9ad6";
-                        if (line.includes("let ") || line.includes("fn ") || line.includes("const ") || line.includes("function ")) color = "#c084fc";
-                        if (/^\s*(if|else|match|for|while|return|Run|Send)/.test(line)) color = "#c084fc";
-                        return <div key={i} className="leading-6"><span style={{ color }}>{line || " "}</span></div>;
-                      })}
-                    </code>
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Tab content — full width when no side panel, flex-1 when side panel present */}
+          <div className={hasSidePanel ? "flex-1 min-w-0" : ""}>
 
-          {/* Changelog tab — renders changelog.md from disk */}
-          {activeTab === "changelog" && (
-            mod.changelogMd.trim()
-              ? <MarkdownContent source={mod.changelogMd} />
-              : <p className="text-[#555555] text-[13px]">No changelog available.</p>
-          )}
+            {/* Core: Details tab — renders details.md */}
+            {activeTab === "details" && (
+              mod.detailsMd.trim()
+                ? <MarkdownContent source={mod.detailsMd} />
+                : <p className="text-[#555555] text-[13px]">No details available.</p>
+            )}
 
-          {/* Extension-injected tab content */}
-          {extTabSlots.map(slot => (
-            activeTab === slot.id && (
-              <DetailTabSlotContent key={slot.id} slot={slot} mod={mod} />
-            )
-          ))}
+            {/* Core: Source Code tab — reads entry file */}
+            {activeTab === "source" && (
+              <div>
+                {!mod.sourceVisible ? (
+                  <p className="text-[#555555] text-[13px]">Source code is private.</p>
+                ) : !mod.entrySource.trim() ? (
+                  <p className="text-[#555555] text-[13px]">Source not available.</p>
+                ) : (
+                  <div className="relative bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg overflow-hidden">
+                    <div className="absolute top-3 right-3 z-10"><CopyButton text={mod.entrySource} /></div>
+                    <pre className="p-4 pt-12 overflow-x-auto">
+                      <code className="text-[12px] font-mono">
+                        {mod.entrySource.split("\n").map((line, i) => {
+                          let color = "#888888";
+                          if (line.startsWith("//") || line.startsWith(";") || line.startsWith("#")) color = "#4a7a4a";
+                          if (line.includes("pub fn") || line.includes("use ") || line.includes("import ")) color = "#5a9ad6";
+                          if (line.includes("let ") || line.includes("fn ") || line.includes("const ") || line.includes("function ")) color = "#c084fc";
+                          if (/^\s*(if|else|match|for|while|return|Run|Send)/.test(line)) color = "#c084fc";
+                          return <div key={i} className="leading-6"><span style={{ color }}>{line || " "}</span></div>;
+                        })}
+                      </code>
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Core: Changelog tab — renders changelog.md */}
+            {activeTab === "changelog" && (
+              mod.changelogMd.trim()
+                ? <MarkdownContent source={mod.changelogMd} />
+                : <p className="text-[#555555] text-[13px]">No changelog available.</p>
+            )}
+
+            {/* Zone 2 — extension tab content (label from manifest) */}
+            {extTabSlots.map(slot => (
+              activeTab === slot.id && (
+                <DetailTabSlotContent key={slot.id} slot={slot} mod={mod} />
+              )
+            ))}
+
+          </div>
         </div>
+
+        {/* ── Zone 5 — status bar (only rendered when manifest declares it) ── */}
+        <div className="ml-[72px] pr-8">
+          <DetailStatusBar mod={mod} />
+        </div>
+
       </main>
 
       {showInstallModal && (

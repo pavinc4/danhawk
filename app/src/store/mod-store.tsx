@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { loadMods } from "../lib/mods";
 import type { Mod } from "../lib/types";
 
@@ -12,9 +12,15 @@ async function invoke(command: string, args?: Record<string, unknown>) {
   }
 }
 
-// Ensures animation shows for at least `ms` milliseconds
-// If the real operation takes longer, waits for that instead
 const minDelay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+
+interface Toast {
+  id: number;
+  message: string;
+  type: "activate";  // extend with more types in future if needed
+}
 
 interface ModState {
   installed: boolean;
@@ -26,6 +32,7 @@ interface ModStoreContextType {
   loading: boolean;
   modStates: Record<string, ModState>;
   installingIds: Set<string>;
+  toasts: Toast[];
   isInstalled: (id: string) => boolean;
   isEnabled: (id: string) => boolean;
   isInstalling: (id: string) => boolean;
@@ -42,6 +49,7 @@ export function ModStoreProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [modStates, setModStates] = useState<Record<string, ModState>>({});
   const [installingIds, setInstallingIds] = useState<Set<string>>(new Set());
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
   useEffect(() => {
     loadMods().then((loaded) => {
@@ -53,6 +61,13 @@ export function ModStoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const showToast = useCallback((message: string, type: Toast["type"] = "activate") => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    // Auto-dismiss after 3.5s
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+  }, []);
+
   const isInstalled = (id: string) => modStates[id]?.installed ?? false;
   const isEnabled = (id: string) => modStates[id]?.enabled ?? false;
   const isInstalling = (id: string) => installingIds.has(id);
@@ -60,12 +75,14 @@ export function ModStoreProvider({ children }: { children: ReactNode }) {
   const install = async (id: string) => {
     setInstallingIds((prev) => new Set(prev).add(id));
     try {
-      // Run real operation AND minimum 1s delay in parallel — waits for whichever is longer
       await Promise.all([
         invoke("install_mod", { modId: id }),
         minDelay(1000),
       ]);
       setModStates((prev) => ({ ...prev, [id]: { installed: true, enabled: false } }));
+      // Find extension name for the toast
+      const name = mods.find(m => m.id === id)?.name ?? "Extension";
+      showToast(`${name} installed - toggle it on to activate`);
     } catch {
       console.error(`install_mod failed for ${id}`);
     } finally {
@@ -88,7 +105,6 @@ export function ModStoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Toggle — completely unchanged
   const toggle = async (id: string) => {
     const next = !modStates[id]?.enabled;
     try {
@@ -103,13 +119,50 @@ export function ModStoreProvider({ children }: { children: ReactNode }) {
 
   return (
     <ModStoreContext.Provider value={{
-      mods, loading, modStates, installingIds,
+      mods, loading, modStates, installingIds, toasts,
       isInstalled, isEnabled, isInstalling,
       install, uninstall, toggle,
       getInstalledMods,
     }}>
       {children}
+      <ToastContainer toasts={toasts} />
     </ModStoreContext.Provider>
+  );
+}
+
+// ── Toast renderer ────────────────────────────────────────────────────────────
+// Renders inside the provider so it's always present regardless of which page
+// the user is on when install completes.
+
+function ToastContainer({ toasts }: { toasts: Toast[] }) {
+  if (!toasts.length) return null;
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[999] flex flex-col gap-2 items-center pointer-events-none">
+      {toasts.map(toast => (
+        <ToastItem key={toast.id} toast={toast} />
+      ))}
+    </div>
+  );
+}
+
+function ToastItem({ toast }: { toast: Toast }) {
+  return (
+    <div
+      className="flex items-center gap-2.5 px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl text-[12.5px] text-[#e8e8e8] shadow-2xl whitespace-nowrap"
+      style={{ animation: "toastIn 0.25s ease forwards" }}
+    >
+      <style>{`
+        @keyframes toastIn {
+          from { opacity: 0; transform: translateY(10px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0)    scale(1);    }
+        }
+      `}</style>
+      {/* Toggle icon hint */}
+      <span className="w-4 h-4 rounded-full bg-[#3dba6e]/20 border border-[#3dba6e]/40 flex items-center justify-center flex-shrink-0">
+        <span className="w-2 h-2 rounded-full bg-[#3dba6e]" />
+      </span>
+      {toast.message}
+    </div>
   );
 }
 

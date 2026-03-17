@@ -1,10 +1,5 @@
-; shortcuts.ahk — DanHawk: Multikey Shortcuts
-;
-; Sequential two-key chords:
-;   Ctrl+Shift+W  → I  →  Wikipedia
-;   Ctrl+Alt+C    → H  →  ChatGPT
-;   Ctrl+Alt+C    → O  →  Copilot
-
+; shortcuts.ahk — DanHawk: Multikey Shortcuts (auto-generated, do not edit manually)
+; Edit shortcuts via the Manage Shortcuts button in the Danhawk app.
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 
@@ -29,38 +24,23 @@ Disarm() {
     activeChord := ""
     ToolTip("", , , 1)
 }
-
 ; ── Chord triggers ────────────────────────────────────────────────────────────
 
-^+w::
+<^<!y::
 {
-    ArmChord("csw", "Ctrl+Shift+W  →  I: Wikipedia")
-}
-
-
-^!c::
-{
-    ArmChord("cac", "Ctrl+Alt+C  →  H: ChatGPT   O: Copilot")
+    ArmChord("ctrlalty", "Ctrl+Alt+Y  -  T: YT")
 }
 
 ; ── Second key handlers ───────────────────────────────────────────────────────
 
-~i::
+~t::
 {
     global activeChord
-    if (activeChord != "csw")
+    if (activeChord = "ctrlalty") {
+        Disarm()
+        Run "https://youtube.com"
         return
-    Disarm()
-    Run "https://www.wikipedia.org"
-}
-
-~h::
-{
-    global activeChord
-    if (activeChord != "cac")
-        return
-    Disarm()
-    Run "https://chatgpt.com"
+    }
 }
 
 ; ── Cancel sequence on these keys ─────────────────────────────────────────────

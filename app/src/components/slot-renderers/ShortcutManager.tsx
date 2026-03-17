@@ -51,128 +51,160 @@ const CODE_TO_LABEL: Record<string, string> = {
 };
 
 // ── AHK generator ─────────────────────────────────────────────────────────────
+// Generates shortcuts.ahk using the same ArmChord pattern as the original file.
+// shortcuts.json is the source of truth — AHK is always fully regenerated from it.
+
+function isMod(k: string) {
+    return ["Ctrl", "Control", "Alt", "Shift", "Win", "Meta", "Super"].includes(k);
+}
+
+function keyToAhk(k: string): string {
+    const m: Record<string, string> = {
+        Enter: "Enter", Escape: "Escape", Tab: "Tab", Backspace: "Backspace",
+        Delete: "Delete", Insert: "Insert", Home: "Home", End: "End",
+        PgUp: "PgUp", PgDn: "PgDn", Up: "Up", Down: "Down", Left: "Left", Right: "Right",
+        Space: "Space", F1: "F1", F2: "F2", F3: "F3", F4: "F4", F5: "F5", F6: "F6",
+        F7: "F7", F8: "F8", F9: "F9", F10: "F10", F11: "F11", F12: "F12",
+    };
+    return m[k] ?? k.toLowerCase();
+}
+
+function groupToAhk(keys: string[]): string {
+    const hasCtrl = keys.some(k => k === "Ctrl" || k === "Control");
+    const hasAlt = keys.some(k => k === "Alt");
+    const ctrl = (hasCtrl && hasAlt) ? "<^" : "^";
+    const alt = (hasCtrl && hasAlt) ? "<!" : "!";
+    let r = "";
+    for (const k of keys) {
+        if (k === "Ctrl" || k === "Control") r += ctrl;
+        else if (k === "Alt") r += alt;
+        else if (k === "Shift") r += "+";
+        else if (k === "Win" || k === "Meta" || k === "Super") r += "#";
+        else r += keyToAhk(k);
+    }
+    return r;
+}
 
 function generateAhk(shortcuts: Shortcut[]): string {
+    const NL = "\n";
+    const header = [
+        "; shortcuts.ahk — DanHawk: Multikey Shortcuts (auto-generated, do not edit manually)",
+        "; Edit shortcuts via the Manage Shortcuts button in the Danhawk app.",
+        "#Requires AutoHotkey v2.0",
+        "#SingleInstance Force",
+        "",
+        "; Write PID file so DanHawk can kill this process on toggle-off",
+        'pidDir := A_AppData "\\..\\Local\\Danhawk\\pids"',
+        "if !DirExist(pidDir)",
+        "    DirCreate(pidDir)",
+        'FileOpen(pidDir "\\multikey-shortcuts.pid", "w").Write(ProcessExist())',
+        "",
+        "; State — which chord is currently armed",
+        'global activeChord := ""',
+        "",
+        "ArmChord(chord, hint) {",
+        "    global activeChord",
+        "    activeChord := chord",
+        "    ToolTip(hint, , , 1)",
+        "    SetTimer(Disarm, -2000)",
+        "}",
+        "",
+        "Disarm() {",
+        "    global activeChord",
+        '    activeChord := ""',
+        '    ToolTip("", , , 1)',
+        "}",
+        "",
+    ].join(NL);
+
     if (!shortcuts.length) {
-        return `; shortcuts.ahk — DanHawk: Multikey Shortcuts
-; No shortcuts configured yet.
-#Requires AutoHotkey v2.0
-#SingleInstance Force
-
-pidDir := A_AppData "\\..\\Local\\Danhawk\\pids"
-if !DirExist(pidDir)
-    DirCreate(pidDir)
-FileOpen(pidDir "\\multikey-shortcuts.pid", "w").Write(ProcessExist())
-
-Persistent
-`;
+        return header + "Persistent" + NL;
     }
 
-    // Group shortcuts by first chord
-    const groups = new Map<string, { chordKey: string; label: string; entries: Shortcut[] }>();
+    const groups = new Map<string, Shortcut[]>();
+    const singles: Shortcut[] = [];
+
     for (const s of shortcuts) {
-        if (s.chord.length < 2) continue;
-        // First chord = all keys except last
-        const firstChord = s.chord.slice(0, -1);
-        const secondKey = s.chord[s.chord.length - 1];
-        const chordKey = firstChord.join("+");
-        if (!groups.has(chordKey)) {
-            groups.set(chordKey, { chordKey, label: firstChord.map(k => DISPLAY_MAP[k] || k).join("+"), entries: [] });
-        }
-        groups.get(chordKey)!.entries.push(s);
-    }
-
-    // Build AHK hotkey notation
-    const modMap: Record<string, string> = { Ctrl: "^", Alt: "!", Shift: "+", Win: "#" };
-
-    function toAhkMods(keys: string[]): string {
-        return keys.filter(k => modMap[k]).map(k => modMap[k]).join("");
-    }
-    function toAhkKey(key: string): string {
-        const specials: Record<string, string> = {
-            Space: "Space", Enter: "Enter", Tab: "Tab", Escape: "Escape",
-            Up: "Up", Down: "Down", Left: "Left", Right: "Right",
-            F1: "F1", F2: "F2", F3: "F3", F4: "F4", F5: "F5", F6: "F6",
-            F7: "F7", F8: "F8", F9: "F9", F10: "F10", F11: "F11", F12: "F12",
-        };
-        return specials[key] || key.toLowerCase();
-    }
-
-    function chordToAhk(keys: string[]): string {
-        const mods = keys.filter(k => modMap[k]);
-        const mainKeys = keys.filter(k => !modMap[k]);
-        return toAhkMods(mods) + toAhkKey(mainKeys[0] || "");
-    }
-
-    function launchTarget(s: Shortcut): string {
-        if (s.type === "link") return `Run "${s.path}"`;
-        if (s.type === "folder") return `Run "explorer.exe \`"${s.path}\`""`;
-        return `Run \`"${s.path}\`"`;
-    }
-
-    let out = `; shortcuts.ahk — DanHawk: Multikey Shortcuts (auto-generated)
-#Requires AutoHotkey v2.0
-#SingleInstance Force
-
-pidDir := A_AppData "\\..\\Local\\Danhawk\\pids"
-if !DirExist(pidDir)
-    DirCreate(pidDir)
-FileOpen(pidDir "\\multikey-shortcuts.pid", "w").Write(ProcessExist())
-
-global activeChord := ""
-
-ArmChord(chord, hint) {
-    global activeChord
-    activeChord := chord
-    ToolTip(hint, , , 1)
-    SetTimer(Disarm, -2000)
-}
-
-Disarm() {
-    global activeChord
-    activeChord := ""
-    ToolTip("", , , 1)
-}
-
-`;
-
-    // Chord triggers
-    for (const [, g] of groups) {
-        const firstKeys = g.chordKey.split("+");
-        const hint = g.entries.map(e => {
-            const lastKey = e.chord[e.chord.length - 1];
-            return `${lastKey}: ${e.name}`;
-        }).join("   ");
-        out += `${chordToAhk(firstKeys)}::\n{\n    ArmChord("${g.chordKey}", "${g.label}  →  ${hint}")\n}\n\n`;
-    }
-
-    // Second key handlers
-    const handledKeys = new Set<string>();
-    for (const s of shortcuts) {
-        if (s.chord.length < 2) continue;
-        const firstChord = s.chord.slice(0, -1).join("+");
-        const lastKey = s.chord[s.chord.length - 1];
-        const handlerKey = lastKey.toLowerCase();
-        if (!handledKeys.has(handlerKey)) {
-            handledKeys.add(handlerKey);
-            out += `~${toAhkKey(lastKey)}::\n{\n    global activeChord\n`;
+        const nonModIdx = s.chord.map((k, i) => (isMod(k) ? -1 : i)).filter(i => i >= 0);
+        if (nonModIdx.length >= 2) {
+            const triggerKeys = s.chord.slice(0, nonModIdx[0] + 1);
+            const key = triggerKeys.join("+");
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(s);
         } else {
-            // merge into existing by skipping — handled below
-            continue;
+            singles.push(s);
         }
-
-        // All shortcuts with this second key
-        const matching = shortcuts.filter(x =>
-            x.chord.length >= 2 && x.chord[x.chord.length - 1] === lastKey
-        );
-        for (const m of matching) {
-            const fc = m.chord.slice(0, -1).join("+");
-            out += `    if (activeChord = "${fc}") {\n        Disarm()\n        ${launchTarget(m)}\n        return\n    }\n`;
-        }
-        out += `}\n\n`;
     }
 
-    out += `~Escape::\n{\n    Disarm()\n}\n\n~Space::\n{\n    Disarm()\n}\n\nPersistent\n`;
+    let out = header;
+    out += "; ── Chord triggers ────────────────────────────────────────────────────────────" + NL + NL;
+
+    for (const [triggerKey, entries] of groups) {
+        const triggerKeys = triggerKey.split("+");
+        const hint = entries.map(e => {
+            const lastKey = e.chord[e.chord.length - 1];
+            const disp = DISPLAY_MAP[lastKey] || lastKey;
+            return `${disp}: ${e.name}`;
+        }).join("   ");
+        const chordId = triggerKey.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+        out += groupToAhk(triggerKeys) + "::" + NL;
+        out += "{" + NL;
+        out += `    ArmChord("${chordId}", "${triggerKey}  -  ${hint}")` + NL;
+        out += "}" + NL + NL;
+    }
+
+    if (singles.length) {
+        out += "; ── Single key shortcuts ─────────────────────────────────────────────────────" + NL + NL;
+        for (const s of singles) {
+            const launch = s.type === "link"
+                ? `Run "${s.path}"`
+                : s.type === "folder"
+                    ? `Run "explorer.exe \\"${s.path}\\""`
+                    : `Run "${s.path}"`;
+            out += `; ${s.name}` + NL;
+            out += groupToAhk(s.chord) + "::" + NL;
+            out += "{" + NL;
+            out += `    ${launch}` + NL;
+            out += "}" + NL + NL;
+        }
+    }
+
+    if (groups.size) {
+        out += "; ── Second key handlers ───────────────────────────────────────────────────────" + NL + NL;
+        const secondKeyMap = new Map<string, Shortcut[]>();
+        for (const entries of groups.values()) {
+            for (const s of entries) {
+                const lastKey = keyToAhk(s.chord[s.chord.length - 1]);
+                if (!secondKeyMap.has(lastKey)) secondKeyMap.set(lastKey, []);
+                secondKeyMap.get(lastKey)!.push(s);
+            }
+        }
+        for (const [ahkKey, entries] of secondKeyMap) {
+            out += `~${ahkKey}::` + NL + "{" + NL + "    global activeChord" + NL;
+            for (const s of entries) {
+                const firstNonMod = s.chord.map((k, i) => (isMod(k) ? -1 : i)).filter(i => i >= 0)[0];
+                const triggerKeys = s.chord.slice(0, firstNonMod + 1);
+                const chordId = triggerKeys.join("+").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+                const launch = s.type === "link"
+                    ? `Run "${s.path}"`
+                    : s.type === "folder"
+                        ? `Run "explorer.exe \\"${s.path}\\""`
+                        : `Run "${s.path}"`;
+                out += `    if (activeChord = "${chordId}") {` + NL;
+                out += "        Disarm()" + NL;
+                out += `        ${launch}` + NL;
+                out += "        return" + NL;
+                out += "    }" + NL;
+            }
+            out += "}" + NL + NL;
+        }
+        out += "; ── Cancel sequence on these keys ─────────────────────────────────────────────" + NL + NL;
+        out += "~Escape::" + NL + "{" + NL + "    Disarm()" + NL + "}" + NL + NL;
+        out += "~Space::" + NL + "{" + NL + "    Disarm()" + NL + "}" + NL + NL;
+        out += "~Enter::" + NL + "{" + NL + "    Disarm()" + NL + "}" + NL + NL;
+    }
+
+    out += "Persistent" + NL;
     return out;
 }
 
@@ -638,27 +670,40 @@ export function ShortcutManager({ extId, onClose }: ShortcutManagerProps) {
     const [confirmDelete, setConfirmDelete] = useState<Shortcut | null>(null);
     const { toasts, show: showToast } = useToast();
 
-    // Load shortcuts from file
+    // Load shortcuts from shortcuts.json
+    // If shortcuts.json doesn't exist yet, the list starts empty — user adds via UI.
+    // The existing shortcuts.ahk continues to run unchanged until user makes edits.
     useEffect(() => {
         invoke("ext_read_file", { extId: extId, filename: DATA_FILE })
             .then((raw: unknown) => {
                 if (typeof raw === "string" && raw.trim()) {
-                    try { setShortcuts(JSON.parse(raw)); } catch { /* ignore */ }
+                    try {
+                        const parsed = JSON.parse(raw);
+                        if (Array.isArray(parsed)) setShortcuts(parsed);
+                    } catch { /* ignore parse errors */ }
                 }
+                // If empty/missing: shortcuts.ahk runs as-is, manager shows empty
+                // and user builds their list fresh via the UI
             })
             .catch(() => { });
-    }, []);
+    }, [extId]);
 
     // Persist shortcuts + regenerate AHK whenever shortcuts change
     const persist = useCallback(async (updated: Shortcut[]) => {
         setShortcuts(updated);
+        // Write shortcuts.json
         await invoke("ext_write_file", {
             extId: extId, filename: DATA_FILE, content: JSON.stringify(updated, null, 2),
         }).catch(() => { });
+        // Write shortcuts.ahk
         await invoke("ext_write_file", {
             extId: extId, filename: AHK_FILE, content: generateAhk(updated),
         }).catch(() => { });
-    }, []);
+        // Restart the AHK engine so it picks up the new script immediately.
+        // toggle_mod off then on — danhawk kills the old process and spawns a fresh one.
+        await invoke("toggle_mod", { modId: extId, enabled: false }).catch(() => { });
+        await invoke("toggle_mod", { modId: extId, enabled: true }).catch(() => { });
+    }, [extId]);
 
     const saveShortcut = async (s: Shortcut) => {
         const updated = shortcuts.filter(x => x.id !== s.id);

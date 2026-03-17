@@ -33,6 +33,8 @@ fn main() {
             commands::mods_commands::toggle_mod,
             commands::settings_commands::get_settings,
             commands::settings_commands::save_settings,
+            commands::extension_commands::ext_read_file,
+            commands::extension_commands::ext_write_file,
         ])
         .setup(|app| {
             // ── Tray icon + menu ───────────────────────────────────────────

@@ -81,6 +81,9 @@ struct ModUISlots {
 }
 
 // ── Manifest ──────────────────────────────────────────────────────────────────
+// Only machine-readable fields live here.
+// Human-readable content (details, changelog) lives in .md files alongside the extension.
+// "source_visible": false means the Source Code tab shows a "private" message.
 
 #[derive(Deserialize, Clone)]
 struct Manifest {
@@ -91,49 +94,46 @@ struct Manifest {
     description: String,
     engine:      String,
     entry:       String,
-    #[serde(default)] category:    String,
-    #[serde(default)] icon:        String,
-    #[serde(default)] icon_color:  String,
-    #[serde(default)] icon_bg:     String,
-    #[serde(default)] targets:     Vec<String>,
-    #[serde(default)] details:     String,
-    #[serde(default)] source_code: String,
-    #[serde(default)] changelog:   Vec<ChangelogEntry>,
-    #[serde(default)] lifecycle:   Lifecycle,
-    #[serde(default)] ui:         ModUISlots,
+    #[serde(default)] category:       String,
+    #[serde(default)] icon:           String,
+    #[serde(default)] icon_color:     String,
+    #[serde(default)] icon_bg:        String,
+    #[serde(default)] targets:        Vec<String>,
+    // true (default) = platform reads and shows the entry file in Source Code tab
+    // false = platform shows "Source code is private" message
+    #[serde(default = "default_true")] source_visible: bool,
+    #[serde(default)] lifecycle:      Lifecycle,
+    #[serde(default)] ui:             ModUISlots,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
-pub struct ChangelogEntry {
-    pub version: String,
-    pub date:    String,
-    pub changes: Vec<String>,
-}
+fn default_true() -> bool { true }
 
 // ── ModInfo sent to frontend ──────────────────────────────────────────────────
 
 #[derive(Serialize, Clone)]
 pub struct ModInfo {
-    pub id:          String,
-    pub name:        String,
-    pub slug:        String,
-    pub version:     String,
-    pub author:      String,
-    pub targets:     Vec<String>,
-    pub description: String,
-    pub category:    String,
-    pub icon:        String,
-    pub icon_color:  String,
-    pub icon_bg:     String,
-    pub icon_file:   String,
-    pub mod_type:    String,
-    pub removable:   bool,
-    pub editable:    bool,
-    pub installed:   bool,
-    pub enabled:     bool,
-    pub source_code: String,
-    pub details:     String,
-    pub changelog:   Vec<ChangelogEntry>,
+    pub id:             String,
+    pub name:           String,
+    pub slug:           String,
+    pub version:        String,
+    pub author:         String,
+    pub targets:        Vec<String>,
+    pub description:    String,
+    pub category:       String,
+    pub icon:           String,
+    pub icon_color:     String,
+    pub icon_bg:        String,
+    pub icon_file:      String,
+    pub mod_type:       String,
+    pub removable:      bool,
+    pub editable:       bool,
+    pub installed:      bool,
+    pub enabled:        bool,
+    // Content loaded from files — empty string means file not present
+    pub details_md:     String,   // from details.md
+    pub changelog_md:   String,   // from changelog.md
+    pub entry_source:   String,   // from entry file (e.g. run.ps1)
+    pub source_visible: bool,     // false = show "private" in Source tab
     // Skipped from serialization — used internally only
     #[serde(skip)] pub entry_path:    PathBuf,
     #[serde(skip)] pub engine:        String,
@@ -228,7 +228,6 @@ fn discover_mods() -> Vec<ModInfo> {
         logger::info(&format!("[mods] loaded: {} ({})", manifest.id, manifest.engine));
 
         // Resolve lifecycle hook paths relative to extension folder
-        // None if the field was not declared in manifest
         let resolve = |name: &Option<String>| -> Option<PathBuf> {
             name.as_ref().map(|f| dir.join(f))
         };
@@ -238,7 +237,6 @@ fn discover_mods() -> Vec<ModInfo> {
         let on_install   = resolve(&manifest.lifecycle.on_install);
         let on_uninstall = resolve(&manifest.lifecycle.on_uninstall);
 
-        // Log which hooks are declared for visibility
         if on_enable.is_some()    { logger::info(&format!("[mods] {} has on_enable hook",    manifest.id)); }
         if on_disable.is_some()   { logger::info(&format!("[mods] {} has on_disable hook",   manifest.id)); }
         if on_install.is_some()   { logger::info(&format!("[mods] {} has on_install hook",   manifest.id)); }
@@ -246,7 +244,21 @@ fn discover_mods() -> Vec<ModInfo> {
 
         let entry_path = dir.join(&manifest.entry);
 
-        // Icon file — look for icon.png / .jpg / .ico / .svg / .webp in extension folder
+        // ── Read details.md — empty string if not present ─────────────────────
+        let details_md = fs::read_to_string(dir.join("details.md")).unwrap_or_default();
+
+        // ── Read changelog.md — empty string if not present ──────────────────
+        let changelog_md = fs::read_to_string(dir.join("changelog.md")).unwrap_or_default();
+
+        // ── Read entry file source — only if source_visible is true ──────────
+        // Platform never interprets the source — just passes it to frontend as text.
+        let entry_source = if manifest.source_visible {
+            fs::read_to_string(&entry_path).unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        // ── Icon file — look for icon.* in extension folder ───────────────────
         let icon_file = ["icon.png", "icon.jpg", "icon.jpeg", "icon.ico", "icon.svg", "icon.webp"]
             .iter()
             .find_map(|name| {
@@ -270,28 +282,29 @@ fn discover_mods() -> Vec<ModInfo> {
             .unwrap_or_default();
 
         result.push(ModInfo {
-            slug:        manifest.id.clone(),
-            id:          manifest.id,
-            name:        manifest.name,
-            version:     manifest.version,
-            author:      manifest.author,
-            description: manifest.description,
-            category:    manifest.category,
-            icon:        manifest.icon,
-            icon_color:  manifest.icon_color,
-            icon_bg:     manifest.icon_bg,
+            slug:           manifest.id.clone(),
+            id:             manifest.id,
+            name:           manifest.name,
+            version:        manifest.version,
+            author:         manifest.author,
+            description:    manifest.description,
+            category:       manifest.category,
+            icon:           manifest.icon,
+            icon_color:     manifest.icon_color,
+            icon_bg:        manifest.icon_bg,
             icon_file,
-            targets:     manifest.targets,
-            details:     manifest.details,
-            source_code: manifest.source_code,
-            changelog:   manifest.changelog,
-            mod_type:    "official".into(),
-            removable:   false,
-            editable:    false,
-            installed:   false,
-            enabled:     false,
+            targets:        manifest.targets,
+            details_md,
+            changelog_md,
+            entry_source,
+            source_visible: manifest.source_visible,
+            mod_type:       "official".into(),
+            removable:      false,
+            editable:       false,
+            installed:      false,
+            enabled:        false,
             entry_path,
-            engine:      manifest.engine,
+            engine:         manifest.engine,
             on_enable,
             on_disable,
             on_install,
@@ -370,8 +383,6 @@ pub fn restore_on_startup() {
     kill_orphans();
 
     // Clean up leftover system state from hard kills (Ctrl+C, crash, task kill).
-    // shutdown() never ran in those cases so registry entries etc may still exist.
-    // Run on_disable hooks first to guarantee a clean slate before re-enabling.
     for m in &mods {
         if m.enabled {
             if let Some(hook) = &m.on_disable {
@@ -439,13 +450,11 @@ pub fn get_mods() -> Vec<ModInfo> {
 
 #[tauri::command]
 pub fn install_mod(mod_id: String) -> Result<bool, String> {
-    // Read hook path before locking registry for writing
     let on_install = {
         let reg = REGISTRY.lock().unwrap();
         reg.mods.get(&mod_id).and_then(|m| m.on_install.clone())
     };
 
-    // Run on_install hook if declared
     if let Some(hook) = &on_install {
         if hook.exists() {
             logger::info(&format!("[lifecycle] on_install hook for '{}'", mod_id));
@@ -469,16 +478,13 @@ pub fn install_mod(mod_id: String) -> Result<bool, String> {
 
 #[tauri::command]
 pub fn remove_mod(mod_id: String) -> Result<bool, String> {
-    // Disable first (runs on_disable hook if declared)
     let _ = toggle_mod(mod_id.clone(), false);
 
-    // Read on_uninstall hook before locking registry for writing
     let on_uninstall = {
         let reg = REGISTRY.lock().unwrap();
         reg.mods.get(&mod_id).and_then(|m| m.on_uninstall.clone())
     };
 
-    // Run on_uninstall hook if declared
     if let Some(hook) = &on_uninstall {
         if hook.exists() {
             logger::info(&format!("[lifecycle] on_uninstall hook for '{}'", mod_id));
@@ -538,8 +544,6 @@ pub fn toggle_mod(mod_id: String, enabled: bool) -> Result<bool, String> {
 }
 
 // ── Shutdown ──────────────────────────────────────────────────────────────────
-// Called on app quit. Runs on_disable hooks for all enabled lifecycle extensions
-// so they can clean up system state (registry entries etc), then kills all processes.
 
 pub fn shutdown() {
     let mods: Vec<ModInfo> = {
@@ -561,7 +565,6 @@ pub fn shutdown() {
         }
     }
 
-    // Kill all running processes after hooks complete
     engines::stop_all();
     logger::info("[shutdown] all extensions stopped");
 }

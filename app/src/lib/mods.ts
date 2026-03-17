@@ -1,6 +1,6 @@
-import type { Mod } from "./types";
+import type { Extension } from "./types";
 
-interface RawMod {
+interface RawExtension {
   id: string;
   name: string;
   slug: string;
@@ -18,16 +18,17 @@ interface RawMod {
   editable: boolean;
   installed: boolean;
   enabled: boolean;
-  source_code: string;
-  details: string;
-  changelog: { version: string; date: string; changes: string[] }[];
+  details_md: string;
+  changelog_md: string;
+  entry_source: string;
+  source_visible: boolean;
   ui?: {
     detail_actions?: { type: string; label: string }[];
     detail_tabs?: { type: string; label: string; id: string }[];
   };
 }
 
-function mapMod(raw: RawMod): Mod {
+function mapExtension(raw: RawExtension): Extension {
   return {
     id: raw.id,
     name: raw.name,
@@ -46,18 +47,19 @@ function mapMod(raw: RawMod): Mod {
     editable: raw.editable,
     installed: raw.installed,
     enabled: raw.enabled,
-    sourceCode: raw.source_code,
-    details: raw.details,
-    changelog: raw.changelog,
+    detailsMd: raw.details_md,
+    changelogMd: raw.changelog_md,
+    entrySource: raw.entry_source,
+    sourceVisible: raw.source_visible,
     ui: raw.ui,
   };
 }
 
-export async function loadMods(): Promise<Mod[]> {
+export async function loadMods(): Promise<Extension[]> {
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    const raw = await invoke<RawMod[]>("get_mods");
-    return raw.map(mapMod);
+    const raw = await invoke<RawExtension[]>("get_mods");
+    return raw.map(mapExtension);
   } catch (e) {
     console.warn("Tauri not available:", e);
     return [];

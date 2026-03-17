@@ -1,4 +1,4 @@
-export interface Mod {
+export interface Extension {
   id: string;
   name: string;
   slug: string;
@@ -16,34 +16,27 @@ export interface Mod {
   installed: boolean;
   enabled: boolean;
   iconFile?: string;
-  details?: string;
-  sourceCode?: string;
-  changelog?: ChangelogEntry[];
-  // UI slots declared in manifest — app renders these generically
-  ui?: ModUI;
+  // Content loaded from files by the platform — empty string means file absent
+  detailsMd: string;       // from details.md — platform renders as markdown
+  changelogMd: string;     // from changelog.md — platform renders as markdown
+  entrySource: string;     // from entry file — platform shows in Source tab
+  sourceVisible: boolean;  // false = show "private" message in Source tab
+  // UI slots declared in manifest — platform renders these generically
+  ui?: ExtensionUI;
 }
 
-export interface ChangelogEntry {
-  version: string;
-  date: string;
-  changes: string[];
-}
+// Keep Mod as alias so existing imports don't break during transition
+export type Mod = Extension;
 
-// ── UI slot declarations ───────────────────────────────────────────────────
-// Extensions declare these in manifest.json under "ui".
-// The app reads them and renders built-in slot components generically.
-// No hardcoding of extension IDs anywhere in the platform.
-
-export interface ModUI {
-  // Buttons shown in the detail page action bar when installed
+export interface ExtensionUI {
   detail_actions?: DetailActionSlot[];
-  // Extra tabs added to the detail page tab bar when installed
   detail_tabs?: DetailTabSlot[];
 }
 
+// Keep ModUI as alias
+export type ModUI = ExtensionUI;
+
 export interface DetailActionSlot {
-  // type maps to a built-in renderer in the platform
-  // e.g. "shortcut-manager" → renders the ShortcutManager button+overlay
   type: string;
   label: string;
 }
@@ -51,7 +44,6 @@ export interface DetailActionSlot {
 export interface DetailTabSlot {
   type: string;
   label: string;
-  // tab id used for active tab tracking
   id: string;
 }
 

@@ -10,7 +10,61 @@ import { DetailActionSlots, getDetailTabSlots, DetailTabSlotContent } from "../c
 type TabType = "details" | "source" | "changelog" | string;
 type LucideIcon = React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
 
-// ── Internal components (unchanged) ──────────────────────────────────────────
+// ── Markdown renderer ─────────────────────────────────────────────────────────
+// Renders the simple markdown we write in details.md / changelog.md.
+// Supports: # headings, ## headings, - lists, **bold**, blank lines.
+// No external library — keeps bundle small.
+
+function MarkdownContent({ source }: { source: string }) {
+  if (!source.trim()) return null;
+  const lines = source.split("\n");
+  return (
+    <div className="max-w-2xl">
+      {lines.map((line, i) => {
+        if (line.startsWith("# "))
+          return <h1 key={i} className="text-[20px] font-bold mt-4 mb-3 text-[#e8e8e8]">{line.slice(2)}</h1>;
+        if (line.startsWith("## "))
+          return <h2 key={i} className="text-[15px] font-semibold mt-4 mb-2 text-[#e8e8e8]">{line.slice(3)}</h2>;
+        if (line.startsWith("### "))
+          return <h3 key={i} className="text-[13px] font-semibold mt-3 mb-1 text-[#e8e8e8]">{line.slice(4)}</h3>;
+        if (line.startsWith("- ")) {
+          const text = line.slice(2);
+          const isCheck = text.startsWith("✅");
+          const isCross = text.startsWith("❌");
+          return (
+            <li key={i} className={`ml-4 text-[13px] mb-1 list-none flex items-start gap-1.5 ${isCheck ? "text-[#4caf50]" : isCross ? "text-[#ef5350]" : "text-[#787878]"}`}>
+              <span className="mt-0.5 flex-shrink-0">{isCheck || isCross ? "" : "•"}</span>
+              <span>{renderInline(text)}</span>
+            </li>
+          );
+        }
+        if (line.trim() === "") return <div key={i} className="h-2" />;
+        return (
+          <p key={i} className="text-[#787878] mb-1.5 text-[13px] leading-[1.6]">
+            {renderInline(line)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+// Renders **bold** inline within a line
+function renderInline(text: string): React.ReactNode {
+  if (!text.includes("**")) return text;
+  const parts = text.split(/\*\*(.*?)\*\*/g);
+  return (
+    <>
+      {parts.map((part, j) =>
+        j % 2 === 1
+          ? <strong key={j} className="text-[#e8e8e8] font-semibold">{part}</strong>
+          : part
+      )}
+    </>
+  );
+}
+
+// ── Internal components ───────────────────────────────────────────────────────
 
 function ModToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
   return (
@@ -72,7 +126,7 @@ function InstallModal({ modName, onConfirm, onClose, installing }: {
               : <Icons.Download className="w-4 h-4 text-[#3b8bdb]" />}
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-[#e8e8e8]">{installing ? "Installing..." : "Install mod?"}</p>
+            <p className="text-[13px] font-semibold text-[#e8e8e8]">{installing ? "Installing..." : "Install extension?"}</p>
             <p className="text-[11px] text-[#555555] truncate">{modName}</p>
           </div>
         </div>
@@ -86,7 +140,7 @@ function InstallModal({ modName, onConfirm, onClose, installing }: {
           </div>
         ) : (
           <>
-            <p className="text-[12px] text-[#787878] mb-4 leading-relaxed">You're already viewing the details. Ready to install this mod?</p>
+            <p className="text-[12px] text-[#787878] mb-4 leading-relaxed">You're already viewing the details. Ready to install this extension?</p>
             <div className="flex gap-2">
               <button onClick={onClose} className="flex-1 py-2 text-[12px] font-medium text-[#aaaaaa] border border-[#2a2a2a] rounded-lg hover:border-[#3a3a3a] hover:text-[#e8e8e8] hover:bg-[#1c1c1c] transition-all duration-150">Cancel</button>
               <button onClick={onConfirm} className="flex-1 py-2 text-[12px] font-medium text-white bg-[#3b8bdb] rounded-lg hover:bg-[#4a9beb] transition-all duration-150 active:scale-[0.98]">Install</button>
@@ -113,7 +167,7 @@ function UninstallModal({ modName, onConfirm, onClose, installing }: {
               : <Trash2 className="w-4 h-4 text-[#c0392b]" />}
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-[#e8e8e8]">{installing ? "Uninstalling..." : "Uninstall mod?"}</p>
+            <p className="text-[13px] font-semibold text-[#e8e8e8]">{installing ? "Uninstalling..." : "Uninstall extension?"}</p>
             <p className="text-[11px] text-[#555555] truncate">{modName}</p>
           </div>
         </div>
@@ -126,7 +180,7 @@ function UninstallModal({ modName, onConfirm, onClose, installing }: {
           </div>
         ) : (
           <>
-            <p className="text-[12px] text-[#787878] mb-4 leading-relaxed">This will remove the mod and stop all its processes. You can reinstall anytime from Explore.</p>
+            <p className="text-[12px] text-[#787878] mb-4 leading-relaxed">This will remove the extension and stop all its processes. You can reinstall anytime from Explore.</p>
             <div className="flex gap-2">
               <button onClick={onClose} className="flex-1 py-2 text-[12px] font-medium text-[#aaaaaa] border border-[#2a2a2a] rounded-lg hover:border-[#3a3a3a] hover:text-[#e8e8e8] hover:bg-[#1c1c1c] transition-all duration-150">Cancel</button>
               <button onClick={onConfirm} className="flex-1 py-2 text-[12px] font-medium text-white bg-[#c0392b] rounded-lg hover:bg-[#e04535] transition-all duration-150 active:scale-[0.98]">Uninstall</button>
@@ -144,20 +198,15 @@ export default function ModDetailPage() {
   const params = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>("details");
-  const [collapseReadme, setCollapseReadme] = useState(true);
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showUninstallModal, setShowUninstallModal] = useState(false);
-
-
 
   const { mods, isInstalled, isEnabled, isInstalling, install, uninstall, toggle } = useModStore();
   const mod = mods.find((m) => m.slug === params.slug);
 
-
-
   if (!mod) return (
     <div className="bg-[#0d0d0d] min-h-full flex items-center justify-center h-64">
-      <p className="text-[#555555]">Mod not found</p>
+      <p className="text-[#555555]">Extension not found</p>
     </div>
   );
 
@@ -165,7 +214,7 @@ export default function ModDetailPage() {
   const enabled = isEnabled(mod.id);
   const installing = isInstalling(mod.id);
 
-  // Core tabs always present
+  // Core tabs — always present
   const coreTabs: { id: TabType; label: string }[] = [
     { id: "details", label: "Details" },
     { id: "source", label: "Source Code" },
@@ -232,16 +281,14 @@ export default function ModDetailPage() {
                   {installing ? <><Spinner />Removing...</> : "Uninstall"}
                 </button>
 
-                {/* ── Extension action slots from manifest ──────────────
-                    Renders whatever detail_actions the manifest declares.
-                    App knows nothing about the extension — just slot types. */}
+                {/* Extension action slots — only rendered if manifest declares them */}
                 <DetailActionSlots mod={mod} />
               </>
             )}
           </div>
         </div>
 
-        {/* ── Tab bar — core tabs + extension tabs ──────────────────────── */}
+        {/* Tab bar */}
         <div className="flex items-center gap-6 border-b border-[#1e1e1e] mb-6 ml-[72px] pr-8">
           {allTabs.map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -253,95 +300,51 @@ export default function ModDetailPage() {
           ))}
         </div>
 
-        {/* ── Tab content ───────────────────────────────────────────────── */}
+        {/* Tab content */}
         <div className="ml-[72px] pr-8">
 
-          {/* Core: Details */}
+          {/* Details tab — renders details.md from disk */}
           {activeTab === "details" && (
-            <div className="max-w-2xl">
-              {mod.details?.split("\n").map((line, i) => {
-                if (line.startsWith("# ")) return <h1 key={i} className="text-[20px] font-bold mt-4 mb-3 text-[#e8e8e8]">{line.slice(2)}</h1>;
-                if (line.startsWith("## ")) return <h2 key={i} className="text-[15px] font-semibold mt-4 mb-2 text-[#e8e8e8]">{line.slice(3)}</h2>;
-                if (line.startsWith("- ")) {
-                  const text = line.slice(2);
-                  const isCheck = text.startsWith("✅");
-                  const isCross = text.startsWith("❌");
-                  return (
-                    <li key={i} className={`ml-4 text-[13px] mb-1 list-none flex items-start gap-1.5 ${isCheck ? "text-[#4caf50]" : isCross ? "text-[#ef5350]" : "text-[#787878]"}`}>
-                      <span className="mt-0.5 flex-shrink-0">{isCheck || isCross ? "" : "•"}</span>
-                      <span>{text}</span>
-                    </li>
-                  );
-                }
-                if (line.includes("**")) {
-                  const parts = line.split(/\*\*(.*?)\*\*/g);
-                  return (
-                    <p key={i} className="text-[#787878] mb-2 text-[13px]">
-                      {parts.map((part, j) => j % 2 === 1 ? <strong key={j} className="text-[#e8e8e8] font-semibold">{part}</strong> : part)}
-                    </p>
-                  );
-                }
-                if (line.trim() === "") return <div key={i} className="h-2" />;
-                return <p key={i} className="text-[#787878] mb-1.5 text-[13px] leading-[1.6]">{line}</p>;
-              })}
-            </div>
+            mod.detailsMd.trim()
+              ? <MarkdownContent source={mod.detailsMd} />
+              : <p className="text-[#555555] text-[13px]">No details available.</p>
           )}
 
-          {/* Core: Source Code */}
+          {/* Source Code tab — reads entry file from disk */}
           {activeTab === "source" && (
             <div>
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-[13px] text-[#e8e8e8]">Collapse Readme and Settings</span>
-                <ModToggle enabled={collapseReadme} onToggle={() => setCollapseReadme(!collapseReadme)} />
-              </div>
-              <div className="relative bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg overflow-hidden">
-                <div className="absolute top-3 right-3 z-10"><CopyButton text={mod.sourceCode ?? ""} /></div>
-                <pre className="p-4 pt-12 overflow-x-auto">
-                  <code className="text-[12px] font-mono">
-                    {mod.sourceCode?.split("\n").map((line, i) => {
-                      let color = "#888888";
-                      if (line.startsWith("//")) color = "#4a7a4a";
-                      if (line.startsWith("// @") || line.startsWith("// ==")) color = "#5a9ad6";
-                      if (line.includes("pub fn") || line.includes("use ")) color = "#5a9ad6";
-                      if (line.includes("let ") || line.includes("fn ")) color = "#c084fc";
-                      if (/^\s*(if|else|match|for|while|return|vec!)/.test(line)) color = "#c084fc";
-                      return <div key={i} className="leading-6"><span style={{ color }}>{line || " "}</span></div>;
-                    })}
-                  </code>
-                </pre>
-              </div>
-            </div>
-          )}
-
-          {/* Core: Changelog */}
-          {activeTab === "changelog" && (
-            <div className="max-w-2xl space-y-8">
-              {mod.changelog && mod.changelog.length > 0 ? (
-                mod.changelog.map((entry, i) => (
-                  <div key={i}>
-                    <h3 className="text-[16px] font-bold text-[#e8e8e8] mb-3">
-                      {entry.version}{" "}
-                      <span className="text-[#3b8bdb] font-normal text-[14px]">
-                        (<span className="hover:underline cursor-pointer">{entry.date}</span>)
-                      </span>
-                    </h3>
-                    <ul className="space-y-2">
-                      {entry.changes.map((change, j) => (
-                        <li key={j} className="flex items-start gap-2 text-[#787878] text-[13px]">
-                          <span className="text-[#444444] mt-0.5 flex-shrink-0">•</span>
-                          <span>{change}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))
+              {!mod.sourceVisible ? (
+                <p className="text-[#555555] text-[13px]">Source code is private.</p>
+              ) : !mod.entrySource.trim() ? (
+                <p className="text-[#555555] text-[13px]">Source not available.</p>
               ) : (
-                <p className="text-[#555555] text-[13px]">No changelog available.</p>
+                <div className="relative bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg overflow-hidden">
+                  <div className="absolute top-3 right-3 z-10"><CopyButton text={mod.entrySource} /></div>
+                  <pre className="p-4 pt-12 overflow-x-auto">
+                    <code className="text-[12px] font-mono">
+                      {mod.entrySource.split("\n").map((line, i) => {
+                        let color = "#888888";
+                        if (line.startsWith("//") || line.startsWith(";") || line.startsWith("#")) color = "#4a7a4a";
+                        if (line.includes("pub fn") || line.includes("use ") || line.includes("import ")) color = "#5a9ad6";
+                        if (line.includes("let ") || line.includes("fn ") || line.includes("const ") || line.includes("function ")) color = "#c084fc";
+                        if (/^\s*(if|else|match|for|while|return|Run|Send)/.test(line)) color = "#c084fc";
+                        return <div key={i} className="leading-6"><span style={{ color }}>{line || " "}</span></div>;
+                      })}
+                    </code>
+                  </pre>
+                </div>
               )}
             </div>
           )}
 
-          {/* Extension tab content from manifest ui.detail_tabs */}
+          {/* Changelog tab — renders changelog.md from disk */}
+          {activeTab === "changelog" && (
+            mod.changelogMd.trim()
+              ? <MarkdownContent source={mod.changelogMd} />
+              : <p className="text-[#555555] text-[13px]">No changelog available.</p>
+          )}
+
+          {/* Extension-injected tab content */}
           {extTabSlots.map(slot => (
             activeTab === slot.id && (
               <DetailTabSlotContent key={slot.id} slot={slot} mod={mod} />

@@ -24,17 +24,27 @@ Disarm() {
 }
 ; -- Chord triggers
 
+<^<!c::
+{
+    ArmChord("ctrlaltc", "Ctrl+Alt+C  ->  H: Google Chrome")
+}
+
 <^<!y::
 {
     ArmChord("ctrlalty", "Ctrl+Alt+Y  ->  T: YT")
 }
 
-<^<!b::
-{
-    ArmChord("ctrlaltb", "Ctrl+Alt+B  ->  R: Brave")
-}
-
 ; -- Second key handlers
+
+~h::
+{
+    global activeChord
+    if (activeChord = "ctrlaltc") {
+        Disarm()
+        Run "C:\Program Files\Google\Chrome\Application\chrome.exe"
+        return
+    }
+}
 
 ~t::
 {
@@ -42,16 +52,6 @@ Disarm() {
     if (activeChord = "ctrlalty") {
         Disarm()
         Run "https://youtube.com"
-        return
-    }
-}
-
-~r::
-{
-    global activeChord
-    if (activeChord = "ctrlaltb") {
-        Disarm()
-        Run "C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
         return
     }
 }

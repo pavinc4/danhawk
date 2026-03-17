@@ -3,7 +3,7 @@
     "name": "Multikey Shortcuts",
     "version": "1.0.0",
     "author": "Danhawk",
-    "description": "Sequential hotkey launcher \u2014 press a two-key chord to open apps and websites instantly.",
+    "description": "Sequential hotkey launcher — press a two-key chord to open apps and websites instantly.",
     "engine": "ahk",
     "entry": "shortcuts.ahk",
     "category": "Shortcuts",
@@ -13,17 +13,7 @@
     "targets": [
         "global"
     ],
-    "details": "# Multikey Shortcuts\n\nSequential hotkey launcher \u2014 press a two-key chord to open apps and websites instantly.\n\n## How it works\n- Press the first chord \u2014 a small tooltip shows available keys\n- Press the second key within 2 seconds to fire\n- Press anything else \u2014 sequence cancels silently\n\n## Managing Shortcuts\nClick **Manage Shortcuts** (when installed) to add, edit or remove shortcuts for apps, links and folders.\n\n## Engine\nPowered by bundled AutoHotkey64.exe \u2014 no installation needed.",
-    "source_code": "managed via Shortcut Manager",
-    "changelog": [
-        {
-            "version": "1.0.0",
-            "date": "Mar 2026",
-            "changes": [
-                "Initial release \u2014 manage shortcuts via the built-in Shortcut Manager"
-            ]
-        }
-    ],
+    "source_visible": false,
     "ui": {
         "detail_actions": [
             {

@@ -12,16 +12,5 @@
   "icon_bg": "#0a1628",
   "targets": [
     "global"
-  ],
-  "details": "# Open Calculator\n\nA global hotkey that opens the Windows Calculator from anywhere.\n\n## Shortcut\n- **Ctrl + Win + C** — opens Calculator\n\n## Engine\nRuns via PowerShell command engine — stays alive in background listening for the hotkey.",
-  "source_code": "see run.ps1",
-  "changelog": [
-    {
-      "version": "1.0.0",
-      "date": "Mar 2026",
-      "changes": [
-        "Initial release — Ctrl+Win+C hotkey via command engine"
-      ]
-    }
   ]
 }

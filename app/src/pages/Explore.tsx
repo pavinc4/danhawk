@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { Search, ArrowUpDown } from "lucide-react";
+import { Search, ArrowUpDown, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { ModCard } from "../components/danhawk/mod-card";
 import { useModStore } from "../store/mod-store";
 
@@ -11,6 +12,7 @@ export default function ExplorePage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>("az");
   const [showSortMenu, setShowSortMenu] = useState(false);
   const { mods, loading, isInstalled } = useModStore();
+  const navigate = useNavigate();
 
   // Build category list dynamically from actual extension data
   const categories = useMemo(() => {
@@ -61,6 +63,9 @@ export default function ExplorePage() {
   return (
     <div className="bg-[#0d0d0d] min-h-full" onClick={() => setShowSortMenu(false)}>
       <main className="px-8 pb-24">
+        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-[#1c1c1c] rounded-md transition-colors duration-150 mt-4 mb-2 flex-shrink-0">
+          <ArrowLeft className="w-4 h-4 text-[#666666]" />
+        </button>
 
         {/* Search + sort */}
         <div className="flex items-center gap-2 mb-4 mt-2">

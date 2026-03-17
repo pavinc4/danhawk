@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (val: boolean) => void }) {
   return (
@@ -15,6 +16,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (val: boole
 }
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
   const [language, setLanguage] = useState("English");
   const [checkUpdates, setCheckUpdates] = useState(true);
   const [developerMode, setDeveloperMode] = useState(true);
@@ -27,6 +29,9 @@ export default function SettingsPage() {
   return (
     <div className="bg-[#0d0d0d] min-h-full">
       <main className="px-8 pb-24 max-w-3xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-[#1c1c1c] rounded-md transition-colors duration-150 mt-4 mb-2 flex-shrink-0">
+          <ArrowLeft className="w-4 h-4 text-[#666666]" />
+        </button>
         <section className="mb-8">
           <h3 className="text-[#3b8bdb] font-semibold text-[14px] mb-1">Language</h3>
           <p className="text-[12px] text-[#787878] mb-1">Select your preferred display language for Danhawk.</p>

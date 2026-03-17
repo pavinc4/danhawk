@@ -5,11 +5,13 @@ import * as Icons from "lucide-react";
 import { cn } from "../lib/utils";
 import { StatusDot } from "../components/ui/status-dot";
 import { useModStore } from "../store/mod-store";
+import { DetailActionSlots, getDetailTabSlots, DetailTabSlotContent } from "../components/ExtensionSlots";
 
-type TabType = "details" | "source" | "changelog";
+type TabType = "details" | "source" | "changelog" | string;
 type LucideIcon = React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
 
-// Toggle — completely original, zero changes
+// ── Internal components (unchanged) ──────────────────────────────────────────
+
 function ModToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
   return (
     <button
@@ -70,36 +72,24 @@ function InstallModal({ modName, onConfirm, onClose, installing }: {
               : <Icons.Download className="w-4 h-4 text-[#3b8bdb]" />}
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-[#e8e8e8]">
-              {installing ? "Installing..." : "Install mod?"}
-            </p>
+            <p className="text-[13px] font-semibold text-[#e8e8e8]">{installing ? "Installing..." : "Install mod?"}</p>
             <p className="text-[11px] text-[#555555] truncate">{modName}</p>
           </div>
         </div>
-
         {installing ? (
           <div className="py-2 space-y-3">
             <div className="h-1 bg-[#1e1e1e] rounded-full overflow-hidden">
-              <div className="h-full bg-[#3b8bdb] rounded-full"
-                style={{ width: "40%", animation: "installBar 1.2s ease-in-out infinite" }} />
+              <div className="h-full bg-[#3b8bdb] rounded-full" style={{ width: "40%", animation: "installBar 1.2s ease-in-out infinite" }} />
             </div>
             <style>{`@keyframes installBar { 0% { transform:translateX(-150%) } 100% { transform:translateX(400%) } }`}</style>
             <p className="text-[12px] text-[#555555] text-center">Setting up extension...</p>
           </div>
         ) : (
           <>
-            <p className="text-[12px] text-[#787878] mb-4 leading-relaxed">
-              You're already viewing the details. Ready to install this mod?
-            </p>
+            <p className="text-[12px] text-[#787878] mb-4 leading-relaxed">You're already viewing the details. Ready to install this mod?</p>
             <div className="flex gap-2">
-              <button onClick={onClose}
-                className="flex-1 py-2 text-[12px] font-medium text-[#aaaaaa] border border-[#2a2a2a] rounded-lg hover:border-[#3a3a3a] hover:text-[#e8e8e8] hover:bg-[#1c1c1c] transition-all duration-150">
-                Cancel
-              </button>
-              <button onClick={onConfirm}
-                className="flex-1 py-2 text-[12px] font-medium text-white bg-[#3b8bdb] rounded-lg hover:bg-[#4a9beb] transition-all duration-150 active:scale-[0.98]">
-                Install
-              </button>
+              <button onClick={onClose} className="flex-1 py-2 text-[12px] font-medium text-[#aaaaaa] border border-[#2a2a2a] rounded-lg hover:border-[#3a3a3a] hover:text-[#e8e8e8] hover:bg-[#1c1c1c] transition-all duration-150">Cancel</button>
+              <button onClick={onConfirm} className="flex-1 py-2 text-[12px] font-medium text-white bg-[#3b8bdb] rounded-lg hover:bg-[#4a9beb] transition-all duration-150 active:scale-[0.98]">Install</button>
             </div>
           </>
         )}
@@ -123,35 +113,23 @@ function UninstallModal({ modName, onConfirm, onClose, installing }: {
               : <Trash2 className="w-4 h-4 text-[#c0392b]" />}
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-[#e8e8e8]">
-              {installing ? "Uninstalling..." : "Uninstall mod?"}
-            </p>
+            <p className="text-[13px] font-semibold text-[#e8e8e8]">{installing ? "Uninstalling..." : "Uninstall mod?"}</p>
             <p className="text-[11px] text-[#555555] truncate">{modName}</p>
           </div>
         </div>
-
         {installing ? (
           <div className="py-2 space-y-3">
             <div className="h-1 bg-[#1e1e1e] rounded-full overflow-hidden">
-              <div className="h-full bg-[#c0392b] rounded-full"
-                style={{ width: "40%", animation: "installBar 1.2s ease-in-out infinite" }} />
+              <div className="h-full bg-[#c0392b] rounded-full" style={{ width: "40%", animation: "installBar 1.2s ease-in-out infinite" }} />
             </div>
             <p className="text-[12px] text-[#555555] text-center">Removing extension...</p>
           </div>
         ) : (
           <>
-            <p className="text-[12px] text-[#787878] mb-4 leading-relaxed">
-              This will remove the mod and stop all its processes. You can reinstall anytime from Explore.
-            </p>
+            <p className="text-[12px] text-[#787878] mb-4 leading-relaxed">This will remove the mod and stop all its processes. You can reinstall anytime from Explore.</p>
             <div className="flex gap-2">
-              <button onClick={onClose}
-                className="flex-1 py-2 text-[12px] font-medium text-[#aaaaaa] border border-[#2a2a2a] rounded-lg hover:border-[#3a3a3a] hover:text-[#e8e8e8] hover:bg-[#1c1c1c] transition-all duration-150">
-                Cancel
-              </button>
-              <button onClick={onConfirm}
-                className="flex-1 py-2 text-[12px] font-medium text-white bg-[#c0392b] rounded-lg hover:bg-[#e04535] transition-all duration-150 active:scale-[0.98]">
-                Uninstall
-              </button>
+              <button onClick={onClose} className="flex-1 py-2 text-[12px] font-medium text-[#aaaaaa] border border-[#2a2a2a] rounded-lg hover:border-[#3a3a3a] hover:text-[#e8e8e8] hover:bg-[#1c1c1c] transition-all duration-150">Cancel</button>
+              <button onClick={onConfirm} className="flex-1 py-2 text-[12px] font-medium text-white bg-[#c0392b] rounded-lg hover:bg-[#e04535] transition-all duration-150 active:scale-[0.98]">Uninstall</button>
             </div>
           </>
         )}
@@ -159,6 +137,8 @@ function UninstallModal({ modName, onConfirm, onClose, installing }: {
     </div>
   );
 }
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ModDetailPage() {
   const params = useParams();
@@ -168,8 +148,12 @@ export default function ModDetailPage() {
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showUninstallModal, setShowUninstallModal] = useState(false);
 
+
+
   const { mods, isInstalled, isEnabled, isInstalling, install, uninstall, toggle } = useModStore();
   const mod = mods.find((m) => m.slug === params.slug);
+
+
 
   if (!mod) return (
     <div className="bg-[#0d0d0d] min-h-full flex items-center justify-center h-64">
@@ -181,11 +165,16 @@ export default function ModDetailPage() {
   const enabled = isEnabled(mod.id);
   const installing = isInstalling(mod.id);
 
-  const tabs: { id: TabType; label: string }[] = [
+  // Core tabs always present
+  const coreTabs: { id: TabType; label: string }[] = [
     { id: "details", label: "Details" },
     { id: "source", label: "Source Code" },
     { id: "changelog", label: "Changelog" },
   ];
+
+  // Extension tabs from manifest ui.detail_tabs — only when installed
+  const extTabSlots = installed ? getDetailTabSlots(mod) : [];
+  const allTabs = [...coreTabs, ...extTabSlots.map(t => ({ id: t.id, label: t.label }))];
 
   const IconComponent = ((Icons as unknown) as Record<string, LucideIcon>)[mod.icon] ?? Icons.Box;
 
@@ -194,8 +183,7 @@ export default function ModDetailPage() {
       <main className="px-8 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-200">
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-3 mt-4">
-            <button onClick={() => navigate(-1)}
-              className="p-1.5 hover:bg-[#1c1c1c] rounded-md transition-colors duration-150 flex-shrink-0">
+            <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-[#1c1c1c] rounded-md transition-colors duration-150 flex-shrink-0">
               <ArrowLeft className="w-4 h-4 text-[#666666]" />
             </button>
             <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center border border-[#2a2a2a]"
@@ -221,7 +209,6 @@ export default function ModDetailPage() {
           <div className="flex items-center gap-3 ml-[72px]">
             {!installed ? (
               <>
-                {/* Install button — spinner while installing */}
                 <button
                   disabled={installing}
                   onClick={() => setShowInstallModal(true)}
@@ -235,10 +222,8 @@ export default function ModDetailPage() {
               </>
             ) : (
               <>
-                {/* Toggle — original, completely unchanged */}
                 <ModToggle enabled={enabled} onToggle={() => toggle(mod.id)} />
                 <span className="text-[12px] text-[#555555]">{enabled ? "Enabled" : "Disabled"}</span>
-                {/* Uninstall button — spinner while uninstalling */}
                 <button
                   disabled={installing}
                   onClick={() => setShowUninstallModal(true)}
@@ -246,13 +231,19 @@ export default function ModDetailPage() {
                 >
                   {installing ? <><Spinner />Removing...</> : "Uninstall"}
                 </button>
+
+                {/* ── Extension action slots from manifest ──────────────
+                    Renders whatever detail_actions the manifest declares.
+                    App knows nothing about the extension — just slot types. */}
+                <DetailActionSlots mod={mod} />
               </>
             )}
           </div>
         </div>
 
+        {/* ── Tab bar — core tabs + extension tabs ──────────────────────── */}
         <div className="flex items-center gap-6 border-b border-[#1e1e1e] mb-6 ml-[72px] pr-8">
-          {tabs.map((tab) => (
+          {allTabs.map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={cn("pb-3 text-[13px] font-medium transition-colors duration-150 relative",
                 activeTab === tab.id ? "text-[#3b8bdb]" : "text-[#888888] hover:text-[#e8e8e8]")}>
@@ -262,7 +253,10 @@ export default function ModDetailPage() {
           ))}
         </div>
 
+        {/* ── Tab content ───────────────────────────────────────────────── */}
         <div className="ml-[72px] pr-8">
+
+          {/* Core: Details */}
           {activeTab === "details" && (
             <div className="max-w-2xl">
               {mod.details?.split("\n").map((line, i) => {
@@ -293,6 +287,7 @@ export default function ModDetailPage() {
             </div>
           )}
 
+          {/* Core: Source Code */}
           {activeTab === "source" && (
             <div>
               <div className="flex items-center gap-3 mb-3">
@@ -318,6 +313,7 @@ export default function ModDetailPage() {
             </div>
           )}
 
+          {/* Core: Changelog */}
           {activeTab === "changelog" && (
             <div className="max-w-2xl space-y-8">
               {mod.changelog && mod.changelog.length > 0 ? (
@@ -344,6 +340,13 @@ export default function ModDetailPage() {
               )}
             </div>
           )}
+
+          {/* Extension tab content from manifest ui.detail_tabs */}
+          {extTabSlots.map(slot => (
+            activeTab === slot.id && (
+              <DetailTabSlotContent key={slot.id} slot={slot} mod={mod} />
+            )
+          ))}
         </div>
       </main>
 

@@ -3,7 +3,7 @@
     "name": "Multikey Shortcuts",
     "version": "1.0.0",
     "author": "Danhawk",
-    "description": "Sequential hotkey launcher — press a two-key chord to open apps and websites instantly.",
+    "description": "Sequential hotkey launcher \u2014 press a two-key chord to open apps and websites instantly.",
     "engine": "ahk",
     "entry": "shortcuts.ahk",
     "category": "Shortcuts",
@@ -13,15 +13,23 @@
     "targets": [
         "global"
     ],
-    "details": "# Multikey Shortcuts\n\nSequential hotkey launcher. Press the first chord to arm, then the second key to fire.\n\n## Shortcuts\n\n- **Ctrl+Shift+W** → **I** — Wikipedia\n- **Ctrl+Shift+N** → **O** — Notepad\n- **Ctrl+Alt+C** → **H** — ChatGPT\n- **Ctrl+Alt+C** → **O** — Copilot\n\n## How it works\n- Press the first chord — a small tooltip shows available keys\n- Press the second key within 2 seconds to fire\n- Press anything else — sequence cancels silently\n\n## Engine\nPowered by bundled AutoHotkey64.exe — no installation needed.",
+    "details": "# Multikey Shortcuts\n\nSequential hotkey launcher. Press the first chord to arm, then the second key to fire.\n\n## Shortcuts\n\n- **Ctrl+Shift+W** \u2192 **I** \u2014 Wikipedia\n- **Ctrl+Shift+N** \u2192 **O** \u2014 Notepad\n- **Ctrl+Alt+C** \u2192 **H** \u2014 ChatGPT\n- **Ctrl+Alt+C** \u2192 **O** \u2014 Copilot\n\n## How it works\n- Press the first chord \u2014 a small tooltip shows available keys\n- Press the second key within 2 seconds to fire\n- Press anything else \u2014 sequence cancels silently\n\n## Engine\nPowered by bundled AutoHotkey64.exe \u2014 no installation needed.",
     "source_code": "see shortcuts.ahk",
     "changelog": [
         {
             "version": "1.0.0",
             "date": "Mar 2026",
             "changes": [
-                "Initial release — 4 multikey shortcuts"
+                "Initial release \u2014 4 multikey shortcuts"
             ]
         }
-    ]
+    ],
+    "ui": {
+        "detail_actions": [
+            {
+                "type": "shortcut-manager",
+                "label": "Manage Shortcuts"
+            }
+        ]
+    }
 }

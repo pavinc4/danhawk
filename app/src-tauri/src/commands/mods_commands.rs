@@ -55,6 +55,31 @@ struct Lifecycle {
     #[serde(default)] on_uninstall: Option<String>,
 }
 
+// ── Extension UI slots ───────────────────────────────────────────────────────
+// Declared in manifest.json under "ui". Passed to frontend as-is.
+// Platform renders them generically based on slot type string.
+
+#[derive(Deserialize, Serialize, Clone, Default)]
+struct DetailActionSlot {
+    #[serde(rename = "type")]
+    slot_type: String,
+    label:     String,
+}
+
+#[derive(Deserialize, Serialize, Clone, Default)]
+struct DetailTabSlot {
+    #[serde(rename = "type")]
+    slot_type: String,
+    label:     String,
+    id:        String,
+}
+
+#[derive(Deserialize, Serialize, Clone, Default)]
+struct ModUISlots {
+    #[serde(default)] detail_actions: Vec<DetailActionSlot>,
+    #[serde(default)] detail_tabs:    Vec<DetailTabSlot>,
+}
+
 // ── Manifest ──────────────────────────────────────────────────────────────────
 
 #[derive(Deserialize, Clone)]
@@ -75,6 +100,7 @@ struct Manifest {
     #[serde(default)] source_code: String,
     #[serde(default)] changelog:   Vec<ChangelogEntry>,
     #[serde(default)] lifecycle:   Lifecycle,
+    #[serde(default)] ui:         ModUISlots,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -115,6 +141,7 @@ pub struct ModInfo {
     #[serde(skip)] pub on_disable:    Option<PathBuf>,
     #[serde(skip)] pub on_install:    Option<PathBuf>,
     #[serde(skip)] pub on_uninstall:  Option<PathBuf>,
+    pub ui: Option<ModUISlots>,
 }
 
 // ── Persisted state ───────────────────────────────────────────────────────────
@@ -269,6 +296,11 @@ fn discover_mods() -> Vec<ModInfo> {
             on_disable,
             on_install,
             on_uninstall,
+            ui: if manifest.ui.detail_actions.is_empty() && manifest.ui.detail_tabs.is_empty() {
+                None
+            } else {
+                Some(manifest.ui)
+            },
         });
     }
 

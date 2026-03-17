@@ -1,6 +1,5 @@
 import type { Mod } from "./types";
 
-// Shape returned by Rust (snake_case) — mapped to camelCase below
 interface RawMod {
   id: string;
   name: string;
@@ -22,6 +21,10 @@ interface RawMod {
   source_code: string;
   details: string;
   changelog: { version: string; date: string; changes: string[] }[];
+  ui?: {
+    detail_actions?: { type: string; label: string }[];
+    detail_tabs?: { type: string; label: string; id: string }[];
+  };
 }
 
 function mapMod(raw: RawMod): Mod {
@@ -46,6 +49,7 @@ function mapMod(raw: RawMod): Mod {
     sourceCode: raw.source_code,
     details: raw.details,
     changelog: raw.changelog,
+    ui: raw.ui,
   };
 }
 

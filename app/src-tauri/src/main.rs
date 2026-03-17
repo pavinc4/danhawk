@@ -35,6 +35,8 @@ fn main() {
             commands::settings_commands::save_settings,
             commands::extension_commands::ext_read_file,
             commands::extension_commands::ext_write_file,
+            commands::extension_commands::scan_apps,
+            commands::extension_commands::load_icon,
         ])
         .setup(|app| {
             // ── Tray icon + menu ───────────────────────────────────────────

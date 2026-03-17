@@ -1,5 +1,7 @@
 // extension_commands.rs
 // Generic file read/write + app scanning + icon extraction for extension UIs.
+// File operations are scoped to the INSTALLED extension folder in AppData.
+// Never reads/writes to the source extensions-repo/ folder.
 
 use std::fs;
 use std::path::PathBuf;
@@ -10,9 +12,12 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+// Resolves a safe path inside the installed extension folder.
+// Blocks path traversal attempts (../../etc).
+// Uses AppData/extensions/<ext_id>/ as the base — the runtime copy.
 fn safe_ext_path(ext_id: &str, filename: &str) -> Result<PathBuf, String> {
-    let base = paths::extensions_dir();
-    let target = base.join(ext_id).join(filename);
+    let base = paths::installed_ext_dir(ext_id);
+    let target = base.join(filename);
     let base_canon = fs::canonicalize(&base).unwrap_or(base.clone());
     let parent = target.parent().ok_or("invalid path")?;
     let parent_canon = fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
@@ -22,7 +27,7 @@ fn safe_ext_path(ext_id: &str, filename: &str) -> Result<PathBuf, String> {
     Ok(target)
 }
 
-/// Read a text file from an extension's folder.
+/// Read a text file from the installed extension folder.
 #[tauri::command]
 pub fn ext_read_file(ext_id: String, filename: String) -> Result<String, String> {
     let path = safe_ext_path(&ext_id, &filename)?;
@@ -33,7 +38,7 @@ pub fn ext_read_file(ext_id: String, filename: String) -> Result<String, String>
     })
 }
 
-/// Write a text file to an extension's folder.
+/// Write a text file to the installed extension folder.
 #[tauri::command]
 pub fn ext_write_file(ext_id: String, filename: String, content: String) -> Result<(), String> {
     let path = safe_ext_path(&ext_id, &filename)?;
@@ -46,7 +51,7 @@ pub fn ext_write_file(ext_id: String, filename: String, content: String) -> Resu
     })
 }
 
-/// Scan installed apps from Windows registry — same logic as qkey.
+/// Scan installed apps from Windows registry.
 /// Returns fast with no icons. Call load_icon per-app to get icons.
 #[tauri::command]
 pub async fn scan_apps() -> Result<Vec<serde_json::Value>, String> {
@@ -115,9 +120,7 @@ $apps | Sort-Object name | ConvertTo-Json -Depth 2 -Compress
     let output = cmd.output().map_err(|e| format!("PowerShell error: {e}"))?;
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    if stdout.trim().is_empty() || stdout.trim() == "null" {
-        return Ok(vec![]);
-    }
+    if stdout.trim().is_empty() || stdout.trim() == "null" { return Ok(vec![]); }
 
     let parsed: Vec<serde_json::Value> = if stdout.trim().starts_with('[') {
         serde_json::from_str(stdout.trim()).unwrap_or_default()
@@ -131,7 +134,6 @@ $apps | Sort-Object name | ConvertTo-Json -Depth 2 -Compress
 }
 
 /// Extract icon from an exe/ico file as base64 PNG.
-/// Returns empty string if extraction fails.
 #[tauri::command]
 pub async fn load_icon(path: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || extract_icon_base64(&path))
@@ -160,11 +162,7 @@ try {{
     #[cfg(windows)]
     cmd.creation_flags(CREATE_NO_WINDOW);
 
-    let out = match cmd.output() {
-        Ok(o) => o,
-        Err(_) => return String::new(),
-    };
-
+    let out = match cmd.output() { Ok(o) => o, Err(_) => return String::new() };
     let b64 = String::from_utf8_lossy(&out.stdout).trim().to_string();
     if b64.len() < 50 { return String::new(); }
     format!("data:image/png;base64,{b64}")

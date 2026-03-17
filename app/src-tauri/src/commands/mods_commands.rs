@@ -25,6 +25,25 @@ fn base64_encode(input: &[u8]) -> String {
     out
 }
 
+// ── Recursive directory copy ───────────────────────────────────────────────────
+// std::fs has no built-in copy_dir. Copies src/ into dst/ recursively.
+// Creates dst if it doesn't exist. Overwrites existing files. Skips symlinks.
+
+fn copy_dir(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
+    fs::create_dir_all(dst)
+        .map_err(|e| format!("create dir {}: {}", dst.display(), e))?;
+    for entry in fs::read_dir(src)
+        .map_err(|e| format!("read dir {}: {}", src.display(), e))?
+        .flatten()
+    {
+        let sp = entry.path();
+        let dp = dst.join(entry.file_name());
+        if sp.is_dir()       { copy_dir(&sp, &dp)?; }
+        else if sp.is_file() { fs::copy(&sp, &dp).map_err(|e| format!("copy {}: {}", sp.display(), e))?; }
+    }
+    Ok(())
+}
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 #[derive(Deserialize, Clone, Default)]
@@ -35,7 +54,7 @@ struct Lifecycle {
     #[serde(default)] on_uninstall: Option<String>,
 }
 
-// ── UI slot types — passed to frontend as-is ──────────────────────────────────
+// ── UI slot types ─────────────────────────────────────────────────────────────
 
 #[derive(Deserialize, Serialize, Clone, Default)]
 struct DetailActionSlot {
@@ -50,13 +69,11 @@ struct DetailTabSlot {
     id:    String,
 }
 
-// Zone 3 — side panel slot
 #[derive(Deserialize, Serialize, Clone, Default)]
 struct SidePanelSlot {
     #[serde(rename = "type")] slot_type: String,
 }
 
-// Zone 5 — status bar slot
 #[derive(Deserialize, Serialize, Clone, Default)]
 struct StatusBarSlot {
     #[serde(rename = "type")] slot_type: String,
@@ -72,7 +89,6 @@ struct ModUISlots {
 }
 
 // ── Manifest ──────────────────────────────────────────────────────────────────
-// Only machine-readable fields. Human content lives in .md files.
 
 #[derive(Deserialize, Clone)]
 struct Manifest {
@@ -83,14 +99,14 @@ struct Manifest {
     description: String,
     engine:      String,
     entry:       String,
-    #[serde(default)] category:       String,
-    #[serde(default)] icon:           String,
-    #[serde(default)] icon_color:     String,
-    #[serde(default)] icon_bg:        String,
-    #[serde(default)] targets:        Vec<String>,
+    #[serde(default)] category:      String,
+    #[serde(default)] icon:          String,
+    #[serde(default)] icon_color:    String,
+    #[serde(default)] icon_bg:       String,
+    #[serde(default)] targets:       Vec<String>,
     #[serde(default = "default_true")] source_visible: bool,
-    #[serde(default)] lifecycle:      Lifecycle,
-    #[serde(default)] ui:             ModUISlots,
+    #[serde(default)] lifecycle:     Lifecycle,
+    #[serde(default)] ui:            ModUISlots,
 }
 
 fn default_true() -> bool { true }
@@ -120,13 +136,26 @@ pub struct ModInfo {
     pub changelog_md:   String,
     pub entry_source:   String,
     pub source_visible: bool,
-    #[serde(skip)] pub entry_path:    PathBuf,
-    #[serde(skip)] pub engine:        String,
-    #[serde(skip)] pub on_enable:     Option<PathBuf>,
-    #[serde(skip)] pub on_disable:    Option<PathBuf>,
-    #[serde(skip)] pub on_install:    Option<PathBuf>,
-    #[serde(skip)] pub on_uninstall:  Option<PathBuf>,
+    // Internal — not serialized to frontend
+    #[serde(skip)] pub source_dir:  PathBuf,  // extensions-repo/<id>/ — for copying
+    #[serde(skip)] pub entry_file:  String,   // filename only e.g. "run.ps1"
+    #[serde(skip)] pub engine:      String,
+    // Lifecycle filenames only (resolved against runtime_dir at call time)
+    #[serde(skip)] pub on_enable_file:    Option<String>,
+    #[serde(skip)] pub on_disable_file:   Option<String>,
+    #[serde(skip)] pub on_install_file:   Option<String>,
+    #[serde(skip)] pub on_uninstall_file: Option<String>,
     pub ui: Option<ModUISlots>,
+}
+
+impl ModInfo {
+    // Returns AppData installed dir if it exists, otherwise source dir (dev fallback).
+    // This means in dev: extensions run from source folder until properly installed.
+    // After Install: always run from AppData copy.
+    pub fn runtime_dir(&self) -> PathBuf {
+        let installed = paths::installed_ext_dir(&self.id);
+        if installed.exists() { installed } else { self.source_dir.clone() }
+    }
 }
 
 // ── Persisted state ───────────────────────────────────────────────────────────
@@ -144,10 +173,7 @@ struct PersistedState {
 
 fn load_state() -> PersistedState {
     let path = paths::state_file();
-    fs::read_to_string(&path)
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    fs::read_to_string(&path).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
 }
 
 fn save_state(reg: &Registry) {
@@ -155,25 +181,24 @@ fn save_state(reg: &Registry) {
     for (id, m) in &reg.mods {
         ps.mods.insert(id.clone(), ModState { installed: m.installed, enabled: m.enabled });
     }
-    if let Ok(json) = serde_json::to_string_pretty(&ps) {
-        let _ = fs::write(paths::state_file(), json);
-    }
+    if let Ok(json) = serde_json::to_string_pretty(&ps) { let _ = fs::write(paths::state_file(), json); }
 }
 
 // ── In-memory registry ────────────────────────────────────────────────────────
 
-struct Registry {
-    mods: HashMap<String, ModInfo>,
-}
+struct Registry { mods: HashMap<String, ModInfo> }
 
 static REGISTRY: Lazy<Mutex<Registry>> =
     Lazy::new(|| Mutex::new(Registry { mods: HashMap::new() }));
 
 // ── Manifest discovery ────────────────────────────────────────────────────────
+// Scans extensions-repo/ to build the available list.
+// Only reads display content (details.md, icon, etc.) from source.
+// Runtime execution always uses runtime_dir() which points to installed copy.
 
 fn discover_mods() -> Vec<ModInfo> {
-    let repo = paths::extensions_dir();
-    logger::info(&format!("[mods] scanning: {}", repo.display()));
+    let repo = paths::extensions_repo_dir();
+    logger::info(&format!("[mods] scanning source: {}", repo.display()));
 
     let entries = match fs::read_dir(&repo) {
         Ok(e) => e,
@@ -182,68 +207,50 @@ fn discover_mods() -> Vec<ModInfo> {
 
     let mut result = Vec::new();
     for entry in entries.flatten() {
-        let dir = entry.path();
-        if !dir.is_dir() { continue; }
+        let source_dir = entry.path();
+        if !source_dir.is_dir() { continue; }
 
-        let manifest_path = dir.join("manifest.json");
+        let manifest_path = source_dir.join("manifest.json");
         if !manifest_path.exists() { continue; }
 
         let raw = match fs::read_to_string(&manifest_path) {
-            Ok(s)  => s,
+            Ok(s) => s,
             Err(e) => { logger::warn(&format!("[mods] read error {}: {}", manifest_path.display(), e)); continue; }
         };
 
         let manifest: Manifest = match serde_json::from_str(&raw) {
-            Ok(m)  => m,
+            Ok(m) => m,
             Err(e) => { logger::warn(&format!("[mods] parse error {}: {}", manifest_path.display(), e)); continue; }
         };
 
-        logger::info(&format!("[mods] loaded: {} ({})", manifest.id, manifest.engine));
+        logger::info(&format!("[mods] found: {} ({})", manifest.id, manifest.engine));
 
-        let resolve = |name: &Option<String>| -> Option<PathBuf> {
-            name.as_ref().map(|f| dir.join(f))
-        };
-
-        let on_enable    = resolve(&manifest.lifecycle.on_enable);
-        let on_disable   = resolve(&manifest.lifecycle.on_disable);
-        let on_install   = resolve(&manifest.lifecycle.on_install);
-        let on_uninstall = resolve(&manifest.lifecycle.on_uninstall);
-
-        if on_enable.is_some()    { logger::info(&format!("[mods] {} has on_enable hook",    manifest.id)); }
-        if on_disable.is_some()   { logger::info(&format!("[mods] {} has on_disable hook",   manifest.id)); }
-        if on_install.is_some()   { logger::info(&format!("[mods] {} has on_install hook",   manifest.id)); }
-        if on_uninstall.is_some() { logger::info(&format!("[mods] {} has on_uninstall hook", manifest.id)); }
-
-        let entry_path = dir.join(&manifest.entry);
-
-        // Read content files — empty string if not present
-        let details_md   = fs::read_to_string(dir.join("details.md")).unwrap_or_default();
-        let changelog_md = fs::read_to_string(dir.join("changelog.md")).unwrap_or_default();
+        // Display content — read from source for card/detail page rendering
+        let details_md   = fs::read_to_string(source_dir.join("details.md")).unwrap_or_default();
+        let changelog_md = fs::read_to_string(source_dir.join("changelog.md")).unwrap_or_default();
         let entry_source = if manifest.source_visible {
-            fs::read_to_string(&entry_path).unwrap_or_default()
-        } else {
-            String::new()
-        };
+            fs::read_to_string(source_dir.join(&manifest.entry)).unwrap_or_default()
+        } else { String::new() };
 
-        // Icon file — base64 encode so frontend can use as img src
-        let icon_file = ["icon.png", "icon.jpg", "icon.jpeg", "icon.ico", "icon.svg", "icon.webp"]
+        let icon_file = ["icon.png","icon.jpg","icon.jpeg","icon.ico","icon.svg","icon.webp"]
             .iter()
-            .find_map(|name| { let p = dir.join(name); if p.exists() { Some(p) } else { None } })
+            .find_map(|n| { let p = source_dir.join(n); if p.exists() { Some(p) } else { None } })
             .and_then(|p| {
                 let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
                 let mime = match ext.as_str() {
-                    "png"        => "image/png",
-                    "jpg"|"jpeg" => "image/jpeg",
-                    "ico"        => "image/x-icon",
-                    "svg"        => "image/svg+xml",
-                    "webp"       => "image/webp",
-                    _            => "image/png",
+                    "png" => "image/png", "jpg"|"jpeg" => "image/jpeg",
+                    "ico" => "image/x-icon", "svg" => "image/svg+xml",
+                    "webp" => "image/webp", _ => "image/png",
                 };
-                fs::read(&p).ok().map(|bytes| format!("data:{};base64,{}", mime, base64_encode(&bytes)))
+                fs::read(&p).ok().map(|b| format!("data:{};base64,{}", mime, base64_encode(&b)))
             })
             .unwrap_or_default();
 
-        // Only send ui block if anything is actually declared
+        if manifest.lifecycle.on_enable.is_some()    { logger::info(&format!("[mods] {} has on_enable",    manifest.id)); }
+        if manifest.lifecycle.on_disable.is_some()   { logger::info(&format!("[mods] {} has on_disable",   manifest.id)); }
+        if manifest.lifecycle.on_install.is_some()   { logger::info(&format!("[mods] {} has on_install",   manifest.id)); }
+        if manifest.lifecycle.on_uninstall.is_some() { logger::info(&format!("[mods] {} has on_uninstall", manifest.id)); }
+
         let ui_empty = manifest.ui.detail_actions.is_empty()
             && manifest.ui.detail_tabs.is_empty()
             && manifest.ui.side_panel.is_none()
@@ -271,17 +278,18 @@ fn discover_mods() -> Vec<ModInfo> {
             editable:       false,
             installed:      false,
             enabled:        false,
-            entry_path,
+            source_dir:     source_dir.clone(),
+            entry_file:     manifest.entry,
             engine:         manifest.engine,
-            on_enable,
-            on_disable,
-            on_install,
-            on_uninstall,
+            on_enable_file:    manifest.lifecycle.on_enable,
+            on_disable_file:   manifest.lifecycle.on_disable,
+            on_install_file:   manifest.lifecycle.on_install,
+            on_uninstall_file: manifest.lifecycle.on_uninstall,
             ui: if ui_empty { None } else { Some(manifest.ui) },
         });
     }
 
-    logger::info(&format!("[mods] found {} mods", result.len()));
+    logger::info(&format!("[mods] found {} extensions", result.len()));
     result.sort_by(|a, b| a.name.cmp(&b.name));
     result
 }
@@ -289,17 +297,15 @@ fn discover_mods() -> Vec<ModInfo> {
 // ── Startup ───────────────────────────────────────────────────────────────────
 
 fn kill_orphans() {
-    let pids_dir = paths::pids_dir();
-    let entries = match fs::read_dir(&pids_dir) { Ok(e) => e, Err(_) => return };
+    let entries = match fs::read_dir(paths::pids_dir()) { Ok(e) => e, Err(_) => return };
     let mut killed = 0u32;
     for entry in entries.flatten() {
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("pid") { continue; }
-        if let Ok(contents) = fs::read_to_string(&path) {
-            if let Ok(pid) = contents.trim().parse::<u32>() {
+        if let Ok(s) = fs::read_to_string(&path) {
+            if let Ok(pid) = s.trim().parse::<u32>() {
                 logger::info(&format!("[startup] killing crash-survivor PID {}", pid));
-                #[cfg(windows)]
-                {
+                #[cfg(windows)] {
                     use std::os::windows::process::CommandExt;
                     let _ = std::process::Command::new("taskkill")
                         .args(["/F", "/T", "/PID", &pid.to_string()])
@@ -310,48 +316,42 @@ fn kill_orphans() {
         }
         let _ = fs::remove_file(&path);
     }
-    if killed > 0 {
-        std::thread::sleep(std::time::Duration::from_millis(400));
-        logger::info(&format!("[startup] killed {} crash-survivor(s)", killed));
-    }
+    if killed > 0 { std::thread::sleep(std::time::Duration::from_millis(400)); logger::info(&format!("[startup] killed {} crash-survivors", killed)); }
 }
 
 pub fn restore_on_startup() {
-    let mut mods  = discover_mods();
-    let state     = load_state();
-
-    for m in &mut mods {
-        if let Some(s) = state.mods.get(&m.id) {
-            m.installed = s.installed;
-            m.enabled   = s.enabled;
-        }
-    }
-
+    let mut mods = discover_mods();
+    let state    = load_state();
+    for m in &mut mods { if let Some(s) = state.mods.get(&m.id) { m.installed = s.installed; m.enabled = s.enabled; } }
     { let mut reg = REGISTRY.lock().unwrap(); reg.mods.clear(); for m in &mods { reg.mods.insert(m.id.clone(), m.clone()); } }
-
-    logger::info(&format!("[startup] registry ready: {} mods", mods.len()));
+    logger::info(&format!("[startup] registry ready: {} extensions", mods.len()));
     kill_orphans();
 
+    // Cleanup: run on_disable for crash-survivors (system state cleanup)
     for m in &mods {
         if m.enabled {
-            if let Some(hook) = &m.on_disable {
+            if let Some(ref fname) = m.on_disable_file {
+                let hook = m.runtime_dir().join(fname);
                 if hook.exists() {
                     logger::info(&format!("[startup] cleanup on_disable for '{}'", m.id));
-                    if let Err(e) = engines::run_hook(hook) { logger::warn(&format!("[startup] cleanup failed for '{}': {}", m.id, e)); }
+                    if let Err(e) = engines::run_hook(&hook) { logger::warn(&format!("[startup] cleanup failed '{}': {}", m.id, e)); }
                 }
             }
         }
     }
 
+    // Re-enable extensions that were active last session
     for m in &mods {
         if m.enabled {
             logger::info(&format!("[startup] restoring: {}", m.id));
-            if let Err(e) = engines::start(&m.engine, &m.id, &m.entry_path, m.on_enable.as_ref()) {
+            let rt    = m.runtime_dir();
+            let entry = rt.join(&m.entry_file);
+            let enable = m.on_enable_file.as_ref().map(|f| rt.join(f));
+            if let Err(e) = engines::start(&m.engine, &m.id, &entry, enable.as_ref()) {
                 logger::error(&format!("[startup] failed to restore {}: {}", m.id, e));
                 let mut reg = REGISTRY.lock().unwrap();
                 if let Some(rm) = reg.mods.get_mut(&m.id) { rm.enabled = false; }
-                let reg = REGISTRY.lock().unwrap();
-                save_state(&reg);
+                let reg = REGISTRY.lock().unwrap(); save_state(&reg);
             }
         }
     }
@@ -365,74 +365,126 @@ pub fn get_mods() -> Vec<ModInfo> {
     if reg.mods.is_empty() {
         drop(reg);
         let mut mods = discover_mods();
-        let state = load_state();
+        let state    = load_state();
         for m in &mut mods { if let Some(s) = state.mods.get(&m.id) { m.installed = s.installed; m.enabled = s.enabled; } }
         let mut reg = REGISTRY.lock().unwrap();
         for m in &mods { reg.mods.insert(m.id.clone(), m.clone()); }
-        let mut result: Vec<ModInfo> = reg.mods.values().cloned().collect();
-        result.sort_by(|a, b| a.name.cmp(&b.name));
-        return result;
+        let mut r: Vec<ModInfo> = reg.mods.values().cloned().collect();
+        r.sort_by(|a, b| a.name.cmp(&b.name));
+        return r;
     }
-    let mut mods: Vec<ModInfo> = reg.mods.values().cloned().collect();
-    mods.sort_by(|a, b| a.name.cmp(&b.name));
-    mods
+    let mut r: Vec<ModInfo> = reg.mods.values().cloned().collect();
+    r.sort_by(|a, b| a.name.cmp(&b.name));
+    r
 }
 
 #[tauri::command]
 pub fn install_mod(mod_id: String) -> Result<bool, String> {
-    let on_install = { let reg = REGISTRY.lock().unwrap(); reg.mods.get(&mod_id).and_then(|m| m.on_install.clone()) };
-    if let Some(hook) = &on_install {
+    let (source_dir, on_install_file) = {
+        let reg = REGISTRY.lock().unwrap();
+        match reg.mods.get(&mod_id) {
+            Some(m) => (m.source_dir.clone(), m.on_install_file.clone()),
+            None    => return Err(DanhawkError::NotFound(mod_id).into()),
+        }
+    };
+
+    let installed_dir = paths::installed_ext_dir(&mod_id);
+
+    // Step 1 — copy source folder → AppData/extensions/<id>/
+    logger::info(&format!("[install] copying '{}' → {}", mod_id, installed_dir.display()));
+    copy_dir(&source_dir, &installed_dir)
+        .map_err(|e| format!("install failed for '{}': {}", mod_id, e))?;
+    logger::info(&format!("[install] '{}' copied successfully", mod_id));
+
+    // Step 2 — run on_install hook from installed copy
+    if let Some(fname) = on_install_file {
+        let hook = installed_dir.join(&fname);
         if hook.exists() {
-            logger::info(&format!("[lifecycle] on_install hook for '{}'", mod_id));
-            if let Err(e) = engines::run_hook(hook) { logger::warn(&format!("[lifecycle] on_install hook failed for '{}': {}", mod_id, e)); }
+            logger::info(&format!("[lifecycle] on_install for '{}'", mod_id));
+            if let Err(e) = engines::run_hook(&hook) { logger::warn(&format!("[lifecycle] on_install failed '{}': {}", mod_id, e)); }
         }
     }
+
+    // Step 3 — mark installed
     let mut reg = REGISTRY.lock().unwrap();
     match reg.mods.get_mut(&mod_id) {
         Some(m) => { m.installed = true; logger::info(&format!("[mods] installed: {}", mod_id)); save_state(&reg); Ok(true) }
-        None => Err(DanhawkError::NotFound(mod_id).into()),
+        None    => Err(DanhawkError::NotFound(mod_id).into()),
     }
 }
 
 #[tauri::command]
 pub fn remove_mod(mod_id: String) -> Result<bool, String> {
+    // Step 1 — disable first (kills process, runs on_disable hook)
     let _ = toggle_mod(mod_id.clone(), false);
-    let on_uninstall = { let reg = REGISTRY.lock().unwrap(); reg.mods.get(&mod_id).and_then(|m| m.on_uninstall.clone()) };
-    if let Some(hook) = &on_uninstall {
+
+    let on_uninstall_file = {
+        let reg = REGISTRY.lock().unwrap();
+        reg.mods.get(&mod_id).and_then(|m| m.on_uninstall_file.clone())
+    };
+
+    let installed_dir = paths::installed_ext_dir(&mod_id);
+
+    // Step 2 — run on_uninstall hook from installed copy
+    if let Some(fname) = on_uninstall_file {
+        let hook = installed_dir.join(&fname);
         if hook.exists() {
-            logger::info(&format!("[lifecycle] on_uninstall hook for '{}'", mod_id));
-            if let Err(e) = engines::run_hook(hook) { logger::warn(&format!("[lifecycle] on_uninstall hook failed for '{}': {}", mod_id, e)); }
+            logger::info(&format!("[lifecycle] on_uninstall for '{}'", mod_id));
+            if let Err(e) = engines::run_hook(&hook) { logger::warn(&format!("[lifecycle] on_uninstall failed '{}': {}", mod_id, e)); }
         }
     }
+
+    // Step 3 — delete installed folder from AppData
+    if installed_dir.exists() {
+        match fs::remove_dir_all(&installed_dir) {
+            Ok(_)  => logger::info(&format!("[uninstall] deleted AppData folder for '{}'", mod_id)),
+            Err(e) => logger::warn(&format!("[uninstall] delete failed for '{}': {}", mod_id, e)),
+        }
+    }
+
+    // Step 4 — mark uninstalled
     let mut reg = REGISTRY.lock().unwrap();
-    if let Some(m) = reg.mods.get_mut(&mod_id) { m.installed = false; m.enabled = false; logger::info(&format!("[mods] removed: {}", mod_id)); save_state(&reg); }
+    if let Some(m) = reg.mods.get_mut(&mod_id) {
+        m.installed = false; m.enabled = false;
+        logger::info(&format!("[mods] uninstalled: {}", mod_id));
+        save_state(&reg);
+    }
     Ok(true)
 }
 
 #[tauri::command]
 pub fn toggle_mod(mod_id: String, enabled: bool) -> Result<bool, String> {
-    let (entry_path, engine, on_enable, on_disable) = {
+    let (engine, entry, on_enable, on_disable) = {
         let reg = REGISTRY.lock().unwrap();
         match reg.mods.get(&mod_id) {
-            Some(m) => (m.entry_path.clone(), m.engine.clone(), m.on_enable.clone(), m.on_disable.clone()),
+            Some(m) => {
+                let rt = m.runtime_dir();
+                (
+                    m.engine.clone(),
+                    rt.join(&m.entry_file),
+                    m.on_enable_file.as_ref().map(|f| rt.join(f)),
+                    m.on_disable_file.as_ref().map(|f| rt.join(f)),
+                )
+            }
             None => return Err(DanhawkError::NotFound(mod_id.clone()).into()),
         }
     };
+
     let result = if enabled {
         logger::info(&format!("[mods] enabling: {} via {}", mod_id, engine));
-        engines::start(&engine, &mod_id, &entry_path, on_enable.as_ref())
+        engines::start(&engine, &mod_id, &entry, on_enable.as_ref())
     } else {
         logger::info(&format!("[mods] disabling: {}", mod_id));
         engines::stop(&engine, &mod_id, on_disable.as_ref())
     };
+
     match result {
         Ok(()) => {
             let mut reg = REGISTRY.lock().unwrap();
             if let Some(m) = reg.mods.get_mut(&mod_id) { m.enabled = enabled; }
-            save_state(&reg);
-            Ok(true)
+            save_state(&reg); Ok(true)
         }
-        Err(e) => { logger::error(&format!("[mods] toggle failed for {}: {}", mod_id, e)); Err(e.into()) }
+        Err(e) => { logger::error(&format!("[mods] toggle failed {}: {}", mod_id, e)); Err(e.into()) }
     }
 }
 
@@ -444,10 +496,11 @@ pub fn shutdown() {
         reg.mods.values().filter(|m| m.enabled).cloned().collect()
     };
     for m in &mods {
-        if let Some(hook) = &m.on_disable {
+        if let Some(ref fname) = m.on_disable_file {
+            let hook = m.runtime_dir().join(fname);
             if hook.exists() {
-                logger::info(&format!("[shutdown] running on_disable for '{}'", m.id));
-                if let Err(e) = engines::run_hook(hook) { logger::warn(&format!("[shutdown] on_disable failed for '{}': {}", m.id, e)); }
+                logger::info(&format!("[shutdown] on_disable for '{}'", m.id));
+                if let Err(e) = engines::run_hook(&hook) { logger::warn(&format!("[shutdown] on_disable failed '{}': {}", m.id, e)); }
             }
         }
     }

@@ -11,12 +11,8 @@ fn appdata_dir() -> PathBuf {
 pub fn find_dir(name: &str) -> PathBuf {
     let exe = std::env::current_exe().unwrap_or_default();
     let exe_dir = exe.parent().unwrap_or(std::path::Path::new(".")).to_path_buf();
-
-    // Also try current working directory (useful in dev)
     let cwd = std::env::current_dir().unwrap_or_default();
-
     let search_roots = [exe_dir.clone(), cwd];
-
     for root in &search_roots {
         let mut dir = root.clone();
         for _ in 0..15 {
@@ -25,12 +21,31 @@ pub fn find_dir(name: &str) -> PathBuf {
             if !dir.pop() { break; }
         }
     }
-
     exe_dir.join(name)
 }
 
-pub fn extensions_dir() -> PathBuf {
+// Source repo — extensions-repo/ folder (dev only, not present in production)
+// Used only for scanning available extensions and reading display content.
+pub fn extensions_repo_dir() -> PathBuf {
     find_dir("extensions-repo")
+}
+
+// Alias — keeps existing callers working
+pub fn extensions_dir() -> PathBuf {
+    extensions_repo_dir()
+}
+
+// Installed extensions — AppData runtime copies
+// After Install is clicked, extension folder is copied here.
+// All engine execution and file read/write use this path.
+pub fn installed_extensions_dir() -> PathBuf {
+    let dir = appdata_dir().join("extensions");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+pub fn installed_ext_dir(ext_id: &str) -> PathBuf {
+    installed_extensions_dir().join(ext_id)
 }
 
 pub fn logs_dir() -> PathBuf {
@@ -58,14 +73,9 @@ pub fn pid_file(mod_id: &str) -> PathBuf {
 pub fn ahk_exe() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let exe_dir = exe.parent()?;
-
-    // Production
     let prod = exe_dir.join("resources").join("AutoHotkey64.exe");
     if prod.exists() { return Some(prod); }
-
-    // Dev
     let dev = find_dir("resources").join("AutoHotkey64.exe");
     if dev.exists() { return Some(dev); }
-
     None
 }

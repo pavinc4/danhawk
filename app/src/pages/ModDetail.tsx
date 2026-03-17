@@ -9,6 +9,7 @@ import { useModStore } from "../store/mod-store";
 type TabType = "details" | "source" | "changelog";
 type LucideIcon = React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
 
+// Toggle — completely original, zero changes
 function ModToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
   return (
     <button
@@ -20,17 +21,24 @@ function ModToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => vo
         border: enabled ? "none" : "1px solid #3a3a3a",
       }}
     >
-      <span
-        style={{
-          position: "absolute", top: "50%",
-          transform: `translateY(-50%) translateX(${enabled ? "20px" : "3px"})`,
-          width: 16, height: 16,
-          backgroundColor: "white", borderRadius: "50%",
-          transition: "transform 0.2s", display: "block",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
-        }}
-      />
+      <span style={{
+        position: "absolute", top: "50%",
+        transform: `translateY(-50%) translateX(${enabled ? "20px" : "3px"})`,
+        width: 16, height: 16,
+        backgroundColor: "white", borderRadius: "50%",
+        transition: "transform 0.2s", display: "block",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+      }} />
     </button>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+      <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
+    </svg>
   );
 }
 
@@ -38,11 +46,7 @@ function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
-      onClick={async () => {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }}
+      onClick={async () => { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
       className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1e1e1e] border border-[#2a2a2a] rounded-md text-[11px] text-[#aaaaaa] hover:text-[#e8e8e8] hover:border-[#3a3a3a] hover:bg-[#252525] transition-all duration-150"
     >
       {copied ? <Check className="w-3.5 h-3.5 text-[#4caf50]" /> : <Copy className="w-3.5 h-3.5" />}
@@ -51,53 +55,106 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function InstallModal({ modName, onConfirm, onClose }: { modName: string; onConfirm: () => void; onClose: () => void }) {
+function InstallModal({ modName, onConfirm, onClose, installing }: {
+  modName: string; onConfirm: () => void; onClose: () => void; installing: boolean;
+}) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={installing ? undefined : onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
-      <div className="relative bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl w-[340px] p-5 animate-in fade-in zoom-in-95 duration-150" onClick={(e) => e.stopPropagation()}>
+      <div className="relative bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl w-[340px] p-5 animate-in fade-in zoom-in-95 duration-150"
+        onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-3">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#0d2a4a] border border-[#1a4a7a]/30 flex-shrink-0">
-            <Icons.Download className="w-4 h-4 text-[#3b8bdb]" />
+            {installing
+              ? <svg className="animate-spin w-4 h-4 text-[#3b8bdb]" viewBox="0 0 24 24" fill="none"><circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" /><path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" /></svg>
+              : <Icons.Download className="w-4 h-4 text-[#3b8bdb]" />}
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-[#e8e8e8]">Install mod?</p>
+            <p className="text-[13px] font-semibold text-[#e8e8e8]">
+              {installing ? "Installing..." : "Install mod?"}
+            </p>
             <p className="text-[11px] text-[#555555] truncate">{modName}</p>
           </div>
         </div>
-        <p className="text-[12px] text-[#787878] mb-4 leading-relaxed">
-          You're already viewing the details. Ready to install this mod?
-        </p>
-        <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2 text-[12px] font-medium text-[#aaaaaa] border border-[#2a2a2a] rounded-lg hover:border-[#3a3a3a] hover:text-[#e8e8e8] hover:bg-[#1c1c1c] transition-all duration-150">Cancel</button>
-          <button onClick={onConfirm} className="flex-1 py-2 text-[12px] font-medium text-white bg-[#3b8bdb] rounded-lg hover:bg-[#4a9beb] transition-all duration-150 active:scale-[0.98]">Install</button>
-        </div>
+
+        {installing ? (
+          <div className="py-2 space-y-3">
+            <div className="h-1 bg-[#1e1e1e] rounded-full overflow-hidden">
+              <div className="h-full bg-[#3b8bdb] rounded-full"
+                style={{ width: "40%", animation: "installBar 1.2s ease-in-out infinite" }} />
+            </div>
+            <style>{`@keyframes installBar { 0% { transform:translateX(-150%) } 100% { transform:translateX(400%) } }`}</style>
+            <p className="text-[12px] text-[#555555] text-center">Setting up extension...</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-[12px] text-[#787878] mb-4 leading-relaxed">
+              You're already viewing the details. Ready to install this mod?
+            </p>
+            <div className="flex gap-2">
+              <button onClick={onClose}
+                className="flex-1 py-2 text-[12px] font-medium text-[#aaaaaa] border border-[#2a2a2a] rounded-lg hover:border-[#3a3a3a] hover:text-[#e8e8e8] hover:bg-[#1c1c1c] transition-all duration-150">
+                Cancel
+              </button>
+              <button onClick={onConfirm}
+                className="flex-1 py-2 text-[12px] font-medium text-white bg-[#3b8bdb] rounded-lg hover:bg-[#4a9beb] transition-all duration-150 active:scale-[0.98]">
+                Install
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-function UninstallModal({ modName, onConfirm, onClose }: { modName: string; onConfirm: () => void; onClose: () => void }) {
+function UninstallModal({ modName, onConfirm, onClose, installing }: {
+  modName: string; onConfirm: () => void; onClose: () => void; installing: boolean;
+}) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={installing ? undefined : onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
-      <div className="relative bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl w-[340px] p-5 animate-in fade-in zoom-in-95 duration-150" onClick={(e) => e.stopPropagation()}>
+      <div className="relative bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl w-[340px] p-5 animate-in fade-in zoom-in-95 duration-150"
+        onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-3">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#2a0a0a] border border-[#c0392b]/20 flex-shrink-0">
-            <Trash2 className="w-4 h-4 text-[#c0392b]" />
+            {installing
+              ? <svg className="animate-spin w-4 h-4 text-[#c0392b]" viewBox="0 0 24 24" fill="none"><circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" /><path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" /></svg>
+              : <Trash2 className="w-4 h-4 text-[#c0392b]" />}
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-[#e8e8e8]">Uninstall mod?</p>
+            <p className="text-[13px] font-semibold text-[#e8e8e8]">
+              {installing ? "Uninstalling..." : "Uninstall mod?"}
+            </p>
             <p className="text-[11px] text-[#555555] truncate">{modName}</p>
           </div>
         </div>
-        <p className="text-[12px] text-[#787878] mb-4 leading-relaxed">
-          This will remove the mod and stop all its processes. You can reinstall anytime from Explore.
-        </p>
-        <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2 text-[12px] font-medium text-[#aaaaaa] border border-[#2a2a2a] rounded-lg hover:border-[#3a3a3a] hover:text-[#e8e8e8] hover:bg-[#1c1c1c] transition-all duration-150">Cancel</button>
-          <button onClick={onConfirm} className="flex-1 py-2 text-[12px] font-medium text-white bg-[#c0392b] rounded-lg hover:bg-[#e04535] transition-all duration-150 active:scale-[0.98]">Uninstall</button>
-        </div>
+
+        {installing ? (
+          <div className="py-2 space-y-3">
+            <div className="h-1 bg-[#1e1e1e] rounded-full overflow-hidden">
+              <div className="h-full bg-[#c0392b] rounded-full"
+                style={{ width: "40%", animation: "installBar 1.2s ease-in-out infinite" }} />
+            </div>
+            <p className="text-[12px] text-[#555555] text-center">Removing extension...</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-[12px] text-[#787878] mb-4 leading-relaxed">
+              This will remove the mod and stop all its processes. You can reinstall anytime from Explore.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={onClose}
+                className="flex-1 py-2 text-[12px] font-medium text-[#aaaaaa] border border-[#2a2a2a] rounded-lg hover:border-[#3a3a3a] hover:text-[#e8e8e8] hover:bg-[#1c1c1c] transition-all duration-150">
+                Cancel
+              </button>
+              <button onClick={onConfirm}
+                className="flex-1 py-2 text-[12px] font-medium text-white bg-[#c0392b] rounded-lg hover:bg-[#e04535] transition-all duration-150 active:scale-[0.98]">
+                Uninstall
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -111,7 +168,7 @@ export default function ModDetailPage() {
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showUninstallModal, setShowUninstallModal] = useState(false);
 
-  const { mods, isInstalled, isEnabled, install, uninstall, toggle } = useModStore();
+  const { mods, isInstalled, isEnabled, isInstalling, install, uninstall, toggle } = useModStore();
   const mod = mods.find((m) => m.slug === params.slug);
 
   if (!mod) return (
@@ -122,6 +179,7 @@ export default function ModDetailPage() {
 
   const installed = isInstalled(mod.id);
   const enabled = isEnabled(mod.id);
+  const installing = isInstalling(mod.id);
 
   const tabs: { id: TabType; label: string }[] = [
     { id: "details", label: "Details" },
@@ -136,13 +194,12 @@ export default function ModDetailPage() {
       <main className="px-8 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-200">
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-3 mt-4">
-            <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-[#1c1c1c] rounded-md transition-colors duration-150 flex-shrink-0">
+            <button onClick={() => navigate(-1)}
+              className="p-1.5 hover:bg-[#1c1c1c] rounded-md transition-colors duration-150 flex-shrink-0">
               <ArrowLeft className="w-4 h-4 text-[#666666]" />
             </button>
-            <div
-              className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center border border-[#2a2a2a]"
-              style={{ backgroundColor: mod.iconFile ? "#1a1a1a" : mod.iconBg }}
-            >
+            <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center border border-[#2a2a2a]"
+              style={{ backgroundColor: mod.iconFile ? "#1a1a1a" : mod.iconBg }}>
               {mod.iconFile
                 ? <img src={mod.iconFile} alt={mod.name} className="w-6 h-6 object-contain rounded" />
                 : <IconComponent className="w-5 h-5" style={{ color: mod.iconColor }} />}
@@ -156,7 +213,7 @@ export default function ModDetailPage() {
           <div className="flex items-center gap-2 text-[11px] text-[#555555] mb-2 ml-[72px]">
             <User className="w-3 h-3" />
             <span>{mod.author}</span>
-            {installed && (<><span className="text-[#333]">|</span><StatusDot active={enabled} /></>)}
+            {installed && <><span className="text-[#333]">|</span><StatusDot active={enabled} /></>}
           </div>
 
           <p className="text-[12px] text-[#787878] ml-[72px] mb-4 max-w-2xl">{mod.description}</p>
@@ -164,11 +221,13 @@ export default function ModDetailPage() {
           <div className="flex items-center gap-3 ml-[72px]">
             {!installed ? (
               <>
+                {/* Install button — spinner while installing */}
                 <button
+                  disabled={installing}
                   onClick={() => setShowInstallModal(true)}
-                  className="px-4 py-1.5 bg-[#3b8bdb] text-white rounded-md text-[12px] font-medium hover:bg-[#4a9beb] active:scale-[0.98] transition-all duration-150"
+                  className="px-4 py-1.5 bg-[#3b8bdb] text-white rounded-md text-[12px] font-medium hover:bg-[#4a9beb] active:scale-[0.98] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  Install
+                  {installing ? <><Spinner />Installing...</> : "Install"}
                 </button>
                 <button className="px-4 py-1.5 border border-[#2a2a2a] text-[#e8e8e8] rounded-md text-[12px] font-medium hover:border-[#3a3a3a] hover:bg-[#1c1c1c] active:scale-[0.98] transition-all duration-150">
                   Fork
@@ -176,15 +235,17 @@ export default function ModDetailPage() {
               </>
             ) : (
               <>
-                <ModToggle enabled={enabled} onToggle={() => { toggle(mod.id); }} />
+                {/* Toggle — original, completely unchanged */}
+                <ModToggle enabled={enabled} onToggle={() => toggle(mod.id)} />
                 <span className="text-[12px] text-[#555555]">{enabled ? "Enabled" : "Disabled"}</span>
+                {/* Uninstall button — spinner while uninstalling */}
                 <button
+                  disabled={installing}
                   onClick={() => setShowUninstallModal(true)}
-                  className="ml-1 px-3 py-1.5 border border-[#c0392b]/40 text-[#c0392b] rounded-md text-[12px] hover:border-[#c0392b]/70 hover:bg-[#c0392b]/10 transition-all duration-150"
+                  className="ml-1 px-3 py-1.5 border border-[#c0392b]/40 text-[#c0392b] rounded-md text-[12px] hover:border-[#c0392b]/70 hover:bg-[#c0392b]/10 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
                 >
-                  Uninstall
+                  {installing ? <><Spinner />Removing...</> : "Uninstall"}
                 </button>
-
               </>
             )}
           </div>
@@ -192,18 +253,11 @@ export default function ModDetailPage() {
 
         <div className="flex items-center gap-6 border-b border-[#1e1e1e] mb-6 ml-[72px] pr-8">
           {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "pb-3 text-[13px] font-medium transition-colors duration-150 relative",
-                activeTab === tab.id ? "text-[#3b8bdb]" : "text-[#888888] hover:text-[#e8e8e8]"
-              )}
-            >
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={cn("pb-3 text-[13px] font-medium transition-colors duration-150 relative",
+                activeTab === tab.id ? "text-[#3b8bdb]" : "text-[#888888] hover:text-[#e8e8e8]")}>
               {tab.label}
-              {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3b8bdb] rounded-full" />
-              )}
+              {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3b8bdb] rounded-full" />}
             </button>
           ))}
         </div>
@@ -246,9 +300,7 @@ export default function ModDetailPage() {
                 <ModToggle enabled={collapseReadme} onToggle={() => setCollapseReadme(!collapseReadme)} />
               </div>
               <div className="relative bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg overflow-hidden">
-                <div className="absolute top-3 right-3 z-10">
-                  <CopyButton text={mod.sourceCode ?? ""} />
-                </div>
+                <div className="absolute top-3 right-3 z-10"><CopyButton text={mod.sourceCode ?? ""} /></div>
                 <pre className="p-4 pt-12 overflow-x-auto">
                   <code className="text-[12px] font-mono">
                     {mod.sourceCode?.split("\n").map((line, i) => {
@@ -258,11 +310,7 @@ export default function ModDetailPage() {
                       if (line.includes("pub fn") || line.includes("use ")) color = "#5a9ad6";
                       if (line.includes("let ") || line.includes("fn ")) color = "#c084fc";
                       if (/^\s*(if|else|match|for|while|return|vec!)/.test(line)) color = "#c084fc";
-                      return (
-                        <div key={i} className="leading-6">
-                          <span style={{ color }}>{line || " "}</span>
-                        </div>
-                      );
+                      return <div key={i} className="leading-6"><span style={{ color }}>{line || " "}</span></div>;
                     })}
                   </code>
                 </pre>
@@ -300,17 +348,15 @@ export default function ModDetailPage() {
       </main>
 
       {showInstallModal && (
-        <InstallModal
-          modName={mod.name}
+        <InstallModal modName={mod.name} installing={installing}
           onConfirm={async () => { await install(mod.id); setShowInstallModal(false); }}
-          onClose={() => setShowInstallModal(false)}
+          onClose={() => { if (!installing) setShowInstallModal(false); }}
         />
       )}
       {showUninstallModal && (
-        <UninstallModal
-          modName={mod.name}
+        <UninstallModal modName={mod.name} installing={installing}
           onConfirm={async () => { await uninstall(mod.id); setShowUninstallModal(false); }}
-          onClose={() => setShowUninstallModal(false)}
+          onClose={() => { if (!installing) setShowUninstallModal(false); }}
         />
       )}
     </div>

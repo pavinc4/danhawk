@@ -12,6 +12,10 @@ async function invoke(command: string, args?: Record<string, unknown>) {
   }
 }
 
+// Ensures animation shows for at least `ms` milliseconds
+// If the real operation takes longer, waits for that instead
+const minDelay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
 interface ModState {
   installed: boolean;
   enabled: boolean;
@@ -21,8 +25,10 @@ interface ModStoreContextType {
   mods: Mod[];
   loading: boolean;
   modStates: Record<string, ModState>;
+  installingIds: Set<string>;
   isInstalled: (id: string) => boolean;
   isEnabled: (id: string) => boolean;
+  isInstalling: (id: string) => boolean;
   install: (id: string) => Promise<void>;
   uninstall: (id: string) => Promise<void>;
   toggle: (id: string) => Promise<void>;
@@ -35,14 +41,13 @@ export function ModStoreProvider({ children }: { children: ReactNode }) {
   const [mods, setMods] = useState<Mod[]>([]);
   const [loading, setLoading] = useState(true);
   const [modStates, setModStates] = useState<Record<string, ModState>>({});
+  const [installingIds, setInstallingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadMods().then((loaded) => {
       setMods(loaded);
       const init: Record<string, ModState> = {};
-      loaded.forEach((m) => {
-        init[m.id] = { installed: m.installed, enabled: m.enabled };
-      });
+      loaded.forEach((m) => { init[m.id] = { installed: m.installed, enabled: m.enabled }; });
       setModStates(init);
       setLoading(false);
     });
@@ -50,42 +55,45 @@ export function ModStoreProvider({ children }: { children: ReactNode }) {
 
   const isInstalled = (id: string) => modStates[id]?.installed ?? false;
   const isEnabled = (id: string) => modStates[id]?.enabled ?? false;
+  const isInstalling = (id: string) => installingIds.has(id);
 
-  // ── Install — tell Rust, then update UI ──────────────────────────────────
   const install = async (id: string) => {
+    setInstallingIds((prev) => new Set(prev).add(id));
     try {
-      await invoke("install_mod", { modId: id });
-      setModStates((prev) => ({
-        ...prev,
-        [id]: { installed: true, enabled: false },
-      }));
+      // Run real operation AND minimum 1s delay in parallel — waits for whichever is longer
+      await Promise.all([
+        invoke("install_mod", { modId: id }),
+        minDelay(1000),
+      ]);
+      setModStates((prev) => ({ ...prev, [id]: { installed: true, enabled: false } }));
     } catch {
       console.error(`install_mod failed for ${id}`);
+    } finally {
+      setInstallingIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
     }
   };
 
-  // ── Uninstall — stop process, tell Rust, update UI ───────────────────────
   const uninstall = async (id: string) => {
+    setInstallingIds((prev) => new Set(prev).add(id));
     try {
-      await invoke("remove_mod", { modId: id });
-      setModStates((prev) => ({
-        ...prev,
-        [id]: { installed: false, enabled: false },
-      }));
+      await Promise.all([
+        invoke("remove_mod", { modId: id }),
+        minDelay(1000),
+      ]);
+      setModStates((prev) => ({ ...prev, [id]: { installed: false, enabled: false } }));
     } catch {
       console.error(`remove_mod failed for ${id}`);
+    } finally {
+      setInstallingIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
     }
   };
 
-  // ── Toggle — tell Rust to start/stop engine, update UI ──────────────────
+  // Toggle — completely unchanged
   const toggle = async (id: string) => {
     const next = !modStates[id]?.enabled;
     try {
       await invoke("toggle_mod", { modId: id, enabled: next });
-      setModStates((prev) => ({
-        ...prev,
-        [id]: { ...prev[id], enabled: next },
-      }));
+      setModStates((prev) => ({ ...prev, [id]: { ...prev[id], enabled: next } }));
     } catch {
       console.error(`toggle_mod failed for ${id}`);
     }
@@ -94,14 +102,12 @@ export function ModStoreProvider({ children }: { children: ReactNode }) {
   const getInstalledMods = () => mods.filter((m) => modStates[m.id]?.installed);
 
   return (
-    <ModStoreContext.Provider
-      value={{
-        mods, loading, modStates,
-        isInstalled, isEnabled,
-        install, uninstall, toggle,
-        getInstalledMods,
-      }}
-    >
+    <ModStoreContext.Provider value={{
+      mods, loading, modStates, installingIds,
+      isInstalled, isEnabled, isInstalling,
+      install, uninstall, toggle,
+      getInstalledMods,
+    }}>
       {children}
     </ModStoreContext.Provider>
   );

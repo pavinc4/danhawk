@@ -65,3 +65,13 @@ export async function loadMods(): Promise<Extension[]> {
     return [];
   }
 }
+export async function refreshMods(): Promise<Extension[]> {
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const raw = await invoke<RawExtension[]>("refresh_mods");
+    return raw.map(mapExtension);
+  } catch (e) {
+    console.warn("refresh_mods failed:", e);
+    return [];
+  }
+}

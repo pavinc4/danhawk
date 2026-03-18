@@ -28,6 +28,9 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             commands::mods_commands::get_mods,
+            commands::mods_commands::refresh_mods,
+            commands::mods_commands::check_online,
+            commands::mods_commands::clear_extensions_cache,
             commands::mods_commands::install_mod,
             commands::mods_commands::remove_mod,
             commands::mods_commands::toggle_mod,
@@ -86,7 +89,10 @@ fn main() {
             { let _ = &*engines::command::job::GLOBAL_JOB; }
 
             // ── Restore extensions that were active last session ──────────
-            commands::mods_commands::restore_on_startup();
+            // Run in background thread so window shows immediately
+            std::thread::spawn(|| {
+                commands::mods_commands::restore_on_startup();
+            });
 
             // ── Production: start hidden to tray. Dev: show window. ──────
             #[cfg(not(debug_assertions))]

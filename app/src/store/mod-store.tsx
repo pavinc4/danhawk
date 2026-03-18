@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
-import { loadMods } from "../lib/mods";
+import { loadMods, refreshMods } from "../lib/mods";
 import type { Mod } from "../lib/types";
 
 async function invoke(command: string, args?: Record<string, unknown>) {
@@ -40,26 +40,19 @@ interface ModStoreContextType {
   uninstall: (id: string) => Promise<void>;
   toggle: (id: string) => Promise<void>;
   getInstalledMods: () => Mod[];
+  refreshFromGitHub: () => Promise<void>;
 }
 
 const ModStoreContext = createContext<ModStoreContextType | null>(null);
 
 export function ModStoreProvider({ children }: { children: ReactNode }) {
   const [mods, setMods] = useState<Mod[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [modStates, setModStates] = useState<Record<string, ModState>>({});
   const [installingIds, setInstallingIds] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  useEffect(() => {
-    loadMods().then((loaded) => {
-      setMods(loaded);
-      const init: Record<string, ModState> = {};
-      loaded.forEach((m) => { init[m.id] = { installed: m.installed, enabled: m.enabled }; });
-      setModStates(init);
-      setLoading(false);
-    });
-  }, []);
+  // No startup fetch -- extensions load lazily when user opens Explore
 
   const showToast = useCallback((message: string, type: Toast["type"] = "activate") => {
     const id = Date.now();
@@ -115,6 +108,20 @@ export function ModStoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshFromGitHub = useCallback(async () => {
+    const fresh = await refreshMods();
+    if (fresh.length > 0) {
+      setMods(fresh);
+      setModStates(prev => {
+        const next = { ...prev };
+        fresh.forEach(m => {
+          if (!next[m.id]) next[m.id] = { installed: m.installed, enabled: m.enabled };
+        });
+        return next;
+      });
+    }
+  }, []);
+
   const getInstalledMods = () => mods.filter((m) => modStates[m.id]?.installed);
 
   return (
@@ -123,6 +130,7 @@ export function ModStoreProvider({ children }: { children: ReactNode }) {
       isInstalled, isEnabled, isInstalling,
       install, uninstall, toggle,
       getInstalledMods,
+      refreshFromGitHub,
     }}>
       {children}
       <ToastContainer toasts={toasts} />

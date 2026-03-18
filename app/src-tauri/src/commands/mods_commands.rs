@@ -1,12 +1,97 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
+use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use once_cell::sync::Lazy;
 
 use crate::core::{error::DanhawkError, logger, paths};
 use crate::engines;
+
+// ── GitHub source ─────────────────────────────────────────────────────────────
+
+const GITHUB_OWNER:    &str = "pavinc4";
+const GITHUB_REPO:     &str = "extensions-repo";
+const GITHUB_BRANCH:   &str = "main";
+const GITHUB_EXT_PATH: &str = "";
+
+fn github_api_url(path: &str) -> String {
+    if path.is_empty() {
+        format!(
+            "https://api.github.com/repos/{}/{}/contents?ref={}",
+            GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH
+        )
+    } else {
+        format!(
+            "https://api.github.com/repos/{}/{}/contents/{}?ref={}",
+            GITHUB_OWNER, GITHUB_REPO, path, GITHUB_BRANCH
+        )
+    }
+}
+
+fn github_raw_url(path: &str) -> String {
+    format!(
+        "https://raw.githubusercontent.com/{}/{}/{}/{}",
+        GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH, path
+    )
+}
+
+// ── Extensions cache ─────────────────────────────────────────────────────────
+// Saves fetched extensions to AppData/Local/Danhawk/extensions_cache.json.
+// Loaded when offline so users see extensions without internet after first fetch.
+
+fn cache_file() -> std::path::PathBuf {
+    let dir = paths::appdata_dir();
+    let _ = fs::create_dir_all(&dir);
+    dir.join("extensions_cache.json")
+}
+
+fn save_extensions_cache(mods: &[ModInfo]) {
+    // Serialize only the fields needed for display (skip internal #[serde(skip)] fields)
+    if let Ok(json) = serde_json::to_string(mods) {
+        let _ = fs::write(cache_file(), json);
+        logger::info(&format!("[mods] cached {} extensions to disk", mods.len()));
+    }
+}
+
+fn load_extensions_cache() -> Vec<ModInfo> {
+    let raw = match fs::read_to_string(cache_file()) {
+        Ok(s) => s,
+        Err(_) => return vec![],
+    };
+    serde_json::from_str::<Vec<ModInfo>>(&raw).unwrap_or_default()
+}
+
+fn has_extensions_cache() -> bool {
+    cache_file().exists()
+}
+
+fn fetch_text(url: &str) -> String {
+    ureq::get(url)
+        .set("User-Agent", "danhawk-app")
+        .call()
+        .ok()
+        .and_then(|r| r.into_string().ok())
+        .unwrap_or_default()
+}
+
+fn fetch_bytes(url: &str) -> Vec<u8> {
+    let resp = match ureq::get(url).set("User-Agent", "danhawk-app").call() {
+        Ok(r) => r,
+        Err(_) => return vec![],
+    };
+    let mut buf = Vec::new();
+    resp.into_reader().read_to_end(&mut buf).unwrap_or(0);
+    buf
+}
+
+#[derive(Deserialize)]
+struct GhEntry {
+    name: String,
+    #[serde(rename = "type")]
+    entry_type: String,
+}
 
 // ── base64 encoder ────────────────────────────────────────────────────────────
 
@@ -17,7 +102,7 @@ fn base64_encode(input: &[u8]) -> String {
         let b0 = chunk[0] as usize;
         let b1 = if chunk.len() > 1 { chunk[1] as usize } else { 0 };
         let b2 = if chunk.len() > 2 { chunk[2] as usize } else { 0 };
-        out.push(CHARS[(b0 >> 2)] as char);
+        out.push(CHARS[b0 >> 2] as char);
         out.push(CHARS[((b0 & 3) << 4) | (b1 >> 4)] as char);
         out.push(if chunk.len() > 1 { CHARS[((b1 & 0xf) << 2) | (b2 >> 6)] as char } else { '=' });
         out.push(if chunk.len() > 2 { CHARS[b2 & 0x3f] as char } else { '=' });
@@ -25,22 +110,39 @@ fn base64_encode(input: &[u8]) -> String {
     out
 }
 
-// ── Recursive directory copy ───────────────────────────────────────────────────
-// std::fs has no built-in copy_dir. Copies src/ into dst/ recursively.
-// Creates dst if it doesn't exist. Overwrites existing files. Skips symlinks.
+// ── Download extension from GitHub ───────────────────────────────────────────
+// Downloads all files in the extension folder to dst (AppData/extensions/<id>/)
 
-fn copy_dir(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
-    fs::create_dir_all(dst)
-        .map_err(|e| format!("create dir {}: {}", dst.display(), e))?;
-    for entry in fs::read_dir(src)
-        .map_err(|e| format!("read dir {}: {}", src.display(), e))?
-        .flatten()
-    {
-        let sp = entry.path();
-        let dp = dst.join(entry.file_name());
-        if sp.is_dir()       { copy_dir(&sp, &dp)?; }
-        else if sp.is_file() { fs::copy(&sp, &dp).map_err(|e| format!("copy {}: {}", sp.display(), e))?; }
+fn download_extension_from_github(ext_id: &str, dst: &std::path::Path) -> Result<(), String> {
+    fs::create_dir_all(dst).map_err(|e| format!("create dir {}: {}", dst.display(), e))?;
+
+    let folder_path = if GITHUB_EXT_PATH.is_empty() { ext_id.to_string() } else { format!("{}/{}", GITHUB_EXT_PATH, ext_id) };
+    let resp = ureq::get(&github_api_url(&folder_path))
+        .set("User-Agent", "danhawk-app")
+        .call()
+        .map_err(|e| format!("GitHub API failed for '{}': {}", ext_id, e))?;
+
+    let entries: Vec<GhEntry> = resp.into_json()
+        .map_err(|e| format!("GitHub API parse failed for '{}': {}", ext_id, e))?;
+
+    for entry in &entries {
+        if entry.entry_type != "file" { continue; }
+        let raw_url = github_raw_url(&format!("{}/{}", folder_path, entry.name));
+        let file_resp = ureq::get(&raw_url)
+            .set("User-Agent", "danhawk-app")
+            .call()
+            .map_err(|e| format!("fetch failed for '{}': {}", entry.name, e))?;
+
+        let mut bytes = Vec::new();
+        file_resp.into_reader().read_to_end(&mut bytes)
+            .map_err(|e| format!("read failed for '{}': {}", entry.name, e))?;
+
+        fs::write(dst.join(&entry.name), &bytes)
+            .map_err(|e| format!("write failed for '{}': {}", entry.name, e))?;
+
+        logger::info(&format!("[install] downloaded: {}/{}", ext_id, entry.name));
     }
+
     Ok(())
 }
 
@@ -113,7 +215,7 @@ fn default_true() -> bool { true }
 
 // ── ModInfo sent to frontend ──────────────────────────────────────────────────
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ModInfo {
     pub id:             String,
     pub name:           String,
@@ -136,11 +238,8 @@ pub struct ModInfo {
     pub changelog_md:   String,
     pub entry_source:   String,
     pub source_visible: bool,
-    // Internal — not serialized to frontend
-    #[serde(skip)] pub source_dir:  PathBuf,  // extensions-repo/<id>/ — for copying
-    #[serde(skip)] pub entry_file:  String,   // filename only e.g. "run.ps1"
-    #[serde(skip)] pub engine:      String,
-    // Lifecycle filenames only (resolved against runtime_dir at call time)
+    #[serde(skip)] pub entry_file:        String,
+    #[serde(skip)] pub engine:            String,
     #[serde(skip)] pub on_enable_file:    Option<String>,
     #[serde(skip)] pub on_disable_file:   Option<String>,
     #[serde(skip)] pub on_install_file:   Option<String>,
@@ -149,12 +248,8 @@ pub struct ModInfo {
 }
 
 impl ModInfo {
-    // Returns AppData installed dir if it exists, otherwise source dir (dev fallback).
-    // This means in dev: extensions run from source folder until properly installed.
-    // After Install: always run from AppData copy.
     pub fn runtime_dir(&self) -> PathBuf {
-        let installed = paths::installed_ext_dir(&self.id);
-        if installed.exists() { installed } else { self.source_dir.clone() }
+        paths::installed_ext_dir(&self.id)
     }
 }
 
@@ -181,7 +276,9 @@ fn save_state(reg: &Registry) {
     for (id, m) in &reg.mods {
         ps.mods.insert(id.clone(), ModState { installed: m.installed, enabled: m.enabled });
     }
-    if let Ok(json) = serde_json::to_string_pretty(&ps) { let _ = fs::write(paths::state_file(), json); }
+    if let Ok(json) = serde_json::to_string_pretty(&ps) {
+        let _ = fs::write(paths::state_file(), json);
+    }
 }
 
 // ── In-memory registry ────────────────────────────────────────────────────────
@@ -191,110 +288,135 @@ struct Registry { mods: HashMap<String, ModInfo> }
 static REGISTRY: Lazy<Mutex<Registry>> =
     Lazy::new(|| Mutex::new(Registry { mods: HashMap::new() }));
 
-// ── Manifest discovery ────────────────────────────────────────────────────────
-// Scans extensions-repo/ to build the available list.
-// Only reads display content (details.md, icon, etc.) from source.
-// Runtime execution always uses runtime_dir() which points to installed copy.
+// ── GitHub fetch ──────────────────────────────────────────────────────────────
+// Fetches all extension folders from GitHub concurrently.
+// Each folder gets its own thread so they all fetch in parallel.
 
-fn discover_mods() -> Vec<ModInfo> {
-    let repo = paths::extensions_repo_dir();
-    logger::info(&format!("[mods] scanning source: {}", repo.display()));
+fn is_online() -> bool {
+    // Quick check -- HEAD request to GitHub, 3 second timeout
+    ureq::get("https://github.com")
+        .set("User-Agent", "danhawk-app")
+        .timeout(std::time::Duration::from_secs(3))
+        .call()
+        .is_ok()
+}
 
-    let entries = match fs::read_dir(&repo) {
-        Ok(e) => e,
-        Err(e) => { logger::warn(&format!("[mods] cannot read dir: {}", e)); return vec![]; }
-    };
-
-    let mut result = Vec::new();
-    for entry in entries.flatten() {
-        let source_dir = entry.path();
-        if !source_dir.is_dir() { continue; }
-
-        let manifest_path = source_dir.join("manifest.json");
-        if !manifest_path.exists() { continue; }
-
-        let raw = match fs::read_to_string(&manifest_path) {
-            Ok(s) => s,
-            Err(e) => { logger::warn(&format!("[mods] read error {}: {}", manifest_path.display(), e)); continue; }
-        };
-
-        let manifest: Manifest = match serde_json::from_str(&raw) {
-            Ok(m) => m,
-            Err(e) => { logger::warn(&format!("[mods] parse error {}: {}", manifest_path.display(), e)); continue; }
-        };
-
-        logger::info(&format!("[mods] found: {} ({})", manifest.id, manifest.engine));
-
-        // Display content — read from source for card/detail page rendering
-        let details_md   = fs::read_to_string(source_dir.join("details.md")).unwrap_or_default();
-        let changelog_md = fs::read_to_string(source_dir.join("changelog.md")).unwrap_or_default();
-        let entry_source = if manifest.source_visible {
-            fs::read_to_string(source_dir.join(&manifest.entry)).unwrap_or_default()
-        } else { String::new() };
-
-        let icon_file = ["icon.png","icon.jpg","icon.jpeg","icon.ico","icon.svg","icon.webp"]
-            .iter()
-            .find_map(|n| { let p = source_dir.join(n); if p.exists() { Some(p) } else { None } })
-            .and_then(|p| {
-                let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-                let mime = match ext.as_str() {
-                    "png" => "image/png", "jpg"|"jpeg" => "image/jpeg",
-                    "ico" => "image/x-icon", "svg" => "image/svg+xml",
-                    "webp" => "image/webp", _ => "image/png",
-                };
-                fs::read(&p).ok().map(|b| format!("data:{};base64,{}", mime, base64_encode(&b)))
-            })
-            .unwrap_or_default();
-
-        if manifest.lifecycle.on_enable.is_some()    { logger::info(&format!("[mods] {} has on_enable",    manifest.id)); }
-        if manifest.lifecycle.on_disable.is_some()   { logger::info(&format!("[mods] {} has on_disable",   manifest.id)); }
-        if manifest.lifecycle.on_install.is_some()   { logger::info(&format!("[mods] {} has on_install",   manifest.id)); }
-        if manifest.lifecycle.on_uninstall.is_some() { logger::info(&format!("[mods] {} has on_uninstall", manifest.id)); }
-
-        let ui_empty = manifest.ui.detail_actions.is_empty()
-            && manifest.ui.detail_tabs.is_empty()
-            && manifest.ui.side_panel.is_none()
-            && manifest.ui.status_bar.is_none();
-
-        result.push(ModInfo {
-            slug:           manifest.id.clone(),
-            id:             manifest.id,
-            name:           manifest.name,
-            version:        manifest.version,
-            author:         manifest.author,
-            description:    manifest.description,
-            category:       manifest.category,
-            icon:           manifest.icon,
-            icon_color:     manifest.icon_color,
-            icon_bg:        manifest.icon_bg,
-            icon_file,
-            targets:        manifest.targets,
-            details_md,
-            changelog_md,
-            entry_source,
-            source_visible: manifest.source_visible,
-            mod_type:       "official".into(),
-            removable:      false,
-            editable:       false,
-            installed:      false,
-            enabled:        false,
-            source_dir:     source_dir.clone(),
-            entry_file:     manifest.entry,
-            engine:         manifest.engine,
-            on_enable_file:    manifest.lifecycle.on_enable,
-            on_disable_file:   manifest.lifecycle.on_disable,
-            on_install_file:   manifest.lifecycle.on_install,
-            on_uninstall_file: manifest.lifecycle.on_uninstall,
-            ui: if ui_empty { None } else { Some(manifest.ui) },
-        });
+fn fetch_from_github() -> Vec<ModInfo> {
+    if !is_online() {
+        logger::info("[mods] offline -- loading from cache");
+        return load_extensions_cache();
     }
 
-    logger::info(&format!("[mods] found {} extensions", result.len()));
+    logger::info("[mods] fetching extension list from GitHub");
+
+    let api_url = github_api_url(GITHUB_EXT_PATH);
+    let resp = match ureq::get(&api_url).set("User-Agent", "danhawk-app").call() {
+        Ok(r) => r,
+        Err(e) => { logger::warn(&format!("[mods] GitHub API failed: {}", e)); return vec![]; }
+    };
+
+    let entries: Vec<GhEntry> = match resp.into_json() {
+        Ok(v) => v,
+        Err(e) => { logger::warn(&format!("[mods] GitHub API parse failed: {}", e)); return vec![]; }
+    };
+
+    let folders: Vec<String> = entries.into_iter()
+        .filter(|e| e.entry_type == "dir")
+        .map(|e| e.name)
+        .collect();
+
+    logger::info(&format!("[mods] fetching {} folders concurrently", folders.len()));
+
+    // Fetch all folders in parallel
+    let handles: Vec<_> = folders.into_iter().map(|folder| {
+        std::thread::spawn(move || {
+            let folder_path = if GITHUB_EXT_PATH.is_empty() { folder.clone() } else { format!("{}/{}", GITHUB_EXT_PATH, folder) };
+            let manifest_url = github_raw_url(&format!("{}/manifest.json", &folder_path));
+            let raw = fetch_text(&manifest_url);
+            if raw.is_empty() {
+                logger::warn(&format!("[mods] no manifest for '{}'", folder));
+                return None;
+            }
+
+            let manifest: Manifest = match serde_json::from_str(&raw) {
+                Ok(m) => m,
+                Err(e) => { logger::warn(&format!("[mods] bad manifest '{}': {}", folder, e)); return None; }
+            };
+
+            logger::info(&format!("[mods] loaded: {} ({})", manifest.id, manifest.engine));
+
+            let details_md   = fetch_text(&github_raw_url(&format!("{}/details.md",   &folder_path)));
+            let changelog_md = fetch_text(&github_raw_url(&format!("{}/changelog.md", &folder_path)));
+            let entry_source = if manifest.source_visible {
+                fetch_text(&github_raw_url(&format!("{}/{}", &folder_path, &manifest.entry)))
+            } else { String::new() };
+
+            let icon_file = ["icon.png","icon.jpg","icon.jpeg","icon.ico","icon.svg","icon.webp"]
+                .iter()
+                .find_map(|name| {
+                    let bytes = fetch_bytes(&github_raw_url(&format!("{}/{}", &folder_path, name)));
+                    if bytes.is_empty() { return None; }
+                    let mime = match name.split('.').last().unwrap_or("") {
+                        "png" => "image/png", "jpg"|"jpeg" => "image/jpeg",
+                        "ico" => "image/x-icon", "svg" => "image/svg+xml",
+                        "webp" => "image/webp", _ => "image/png",
+                    };
+                    Some(format!("data:{};base64,{}", mime, base64_encode(&bytes)))
+                })
+                .unwrap_or_default();
+
+            let ui_empty = manifest.ui.detail_actions.is_empty()
+                && manifest.ui.detail_tabs.is_empty()
+                && manifest.ui.side_panel.is_none()
+                && manifest.ui.status_bar.is_none();
+
+            Some(ModInfo {
+                slug:           manifest.id.clone(),
+                id:             manifest.id,
+                name:           manifest.name,
+                version:        manifest.version,
+                author:         manifest.author,
+                description:    manifest.description,
+                category:       manifest.category,
+                icon:           manifest.icon,
+                icon_color:     manifest.icon_color,
+                icon_bg:        manifest.icon_bg,
+                icon_file,
+                targets:        manifest.targets,
+                details_md,
+                changelog_md,
+                entry_source,
+                source_visible: manifest.source_visible,
+                mod_type:       "official".into(),
+                removable:      false,
+                editable:       false,
+                installed:      false,
+                enabled:        false,
+                entry_file:     manifest.entry,
+                engine:         manifest.engine,
+                on_enable_file:    manifest.lifecycle.on_enable,
+                on_disable_file:   manifest.lifecycle.on_disable,
+                on_install_file:   manifest.lifecycle.on_install,
+                on_uninstall_file: manifest.lifecycle.on_uninstall,
+                ui: if ui_empty { None } else { Some(manifest.ui) },
+            })
+        })
+    }).collect();
+
+    let mut result: Vec<ModInfo> = handles.into_iter()
+        .filter_map(|h| h.join().ok().flatten())
+        .collect();
+
     result.sort_by(|a, b| a.name.cmp(&b.name));
+    logger::info(&format!("[mods] fetched {} extensions from GitHub", result.len()));
+    // Save to cache so app works offline on next launch
+    save_extensions_cache(&result);
     result
 }
 
 // ── Startup ───────────────────────────────────────────────────────────────────
+// No network calls here. Only reads installed manifests from AppData.
+// Extensions are fetched from GitHub lazily when user opens Explore.
 
 fn kill_orphans() {
     let entries = match fs::read_dir(paths::pids_dir()) { Ok(e) => e, Err(_) => return };
@@ -316,96 +438,156 @@ fn kill_orphans() {
         }
         let _ = fs::remove_file(&path);
     }
-    if killed > 0 { std::thread::sleep(std::time::Duration::from_millis(400)); logger::info(&format!("[startup] killed {} crash-survivors", killed)); }
+    if killed > 0 {
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        logger::info(&format!("[startup] killed {} crash-survivors", killed));
+    }
 }
 
 pub fn restore_on_startup() {
-    let mut mods = discover_mods();
-    let state    = load_state();
-    for m in &mut mods { if let Some(s) = state.mods.get(&m.id) { m.installed = s.installed; m.enabled = s.enabled; } }
-    { let mut reg = REGISTRY.lock().unwrap(); reg.mods.clear(); for m in &mods { reg.mods.insert(m.id.clone(), m.clone()); } }
-    logger::info(&format!("[startup] registry ready: {} extensions", mods.len()));
     kill_orphans();
 
-    // Cleanup: run on_disable for crash-survivors (system state cleanup)
-    for m in &mods {
-        if m.enabled {
-            if let Some(ref fname) = m.on_disable_file {
-                let hook = m.runtime_dir().join(fname);
-                if hook.exists() {
-                    logger::info(&format!("[startup] cleanup on_disable for '{}'", m.id));
-                    if let Err(e) = engines::run_hook(&hook) { logger::warn(&format!("[startup] cleanup failed '{}': {}", m.id, e)); }
+    let state = load_state();
+
+    // Re-enable extensions from their installed AppData folder.
+    // Reads only local installed manifests -- zero network calls.
+    for (id, s) in &state.mods {
+        if !s.enabled { continue; }
+
+        let installed_dir = paths::installed_ext_dir(id);
+        if !installed_dir.exists() {
+            logger::warn(&format!("[startup] installed dir missing for '{}', skipping", id));
+            continue;
+        }
+
+        let raw = match fs::read_to_string(installed_dir.join("manifest.json")) {
+            Ok(s) => s,
+            Err(_) => { logger::warn(&format!("[startup] no manifest for '{}', skipping", id)); continue; }
+        };
+
+        let manifest: Manifest = match serde_json::from_str(&raw) {
+            Ok(m) => m,
+            Err(_) => { logger::warn(&format!("[startup] bad manifest for '{}', skipping", id)); continue; }
+        };
+
+        let on_disable: Option<PathBuf> = manifest.lifecycle.on_disable.as_ref().map(|f| installed_dir.join(f));
+        let on_enable:  Option<PathBuf> = manifest.lifecycle.on_enable.as_ref().map(|f| installed_dir.join(f));
+        let entry = installed_dir.join(&manifest.entry);
+
+        // Cleanup leftover state from crash
+        if let Some(ref hook) = on_disable {
+            if hook.exists() {
+                logger::info(&format!("[startup] cleanup on_disable for '{}'", id));
+                if let Err(e) = engines::run_hook(hook) {
+                    logger::warn(&format!("[startup] cleanup failed '{}': {}", id, e));
                 }
             }
         }
-    }
 
-    // Re-enable extensions that were active last session
-    for m in &mods {
-        if m.enabled {
-            logger::info(&format!("[startup] restoring: {}", m.id));
-            let rt    = m.runtime_dir();
-            let entry = rt.join(&m.entry_file);
-            let enable = m.on_enable_file.as_ref().map(|f| rt.join(f));
-            if let Err(e) = engines::start(&m.engine, &m.id, &entry, enable.as_ref()) {
-                logger::error(&format!("[startup] failed to restore {}: {}", m.id, e));
-                let mut reg = REGISTRY.lock().unwrap();
-                if let Some(rm) = reg.mods.get_mut(&m.id) { rm.enabled = false; }
-                let reg = REGISTRY.lock().unwrap(); save_state(&reg);
-            }
+        logger::info(&format!("[startup] restoring: {}", id));
+        if let Err(e) = engines::start(&manifest.engine, id, &entry, on_enable.as_ref()) {
+            logger::error(&format!("[startup] failed to restore {}: {}", id, e));
         }
     }
+
+    logger::info("[startup] done -- window ready");
 }
 
 // ── Tauri commands ────────────────────────────────────────────────────────────
 
+// get_mods -- returns whatever is in the registry.
+// On first call (registry empty) returns empty list.
+// Registry is populated by refresh_mods when user opens Explore.
+// Installed/enabled state is always read from state.json.
 #[tauri::command]
 pub fn get_mods() -> Vec<ModInfo> {
     let reg = REGISTRY.lock().unwrap();
-    if reg.mods.is_empty() {
-        drop(reg);
-        let mut mods = discover_mods();
-        let state    = load_state();
-        for m in &mut mods { if let Some(s) = state.mods.get(&m.id) { m.installed = s.installed; m.enabled = s.enabled; } }
-        let mut reg = REGISTRY.lock().unwrap();
-        for m in &mods { reg.mods.insert(m.id.clone(), m.clone()); }
-        let mut r: Vec<ModInfo> = reg.mods.values().cloned().collect();
-        r.sort_by(|a, b| a.name.cmp(&b.name));
-        return r;
-    }
-    let mut r: Vec<ModInfo> = reg.mods.values().cloned().collect();
+    let state = load_state();
+    let mut r: Vec<ModInfo> = reg.mods.values().cloned().map(|mut m| {
+        if let Some(s) = state.mods.get(&m.id) {
+            m.installed = s.installed;
+            m.enabled   = s.enabled;
+        }
+        m
+    }).collect();
     r.sort_by(|a, b| a.name.cmp(&b.name));
     r
 }
 
+// check_online -- fast connectivity check, called before refresh
+#[tauri::command]
+pub fn check_online() -> bool {
+    is_online()
+}
+
+// clear_extensions_cache -- deletes the local cache file.
+// Use for testing to force a fresh fetch from GitHub.
+#[tauri::command]
+pub fn clear_extensions_cache() -> bool {
+    let path = cache_file();
+    if path.exists() {
+        let _ = fs::remove_file(&path);
+        // Also clear registry so get_mods returns empty
+        let mut reg = REGISTRY.lock().unwrap();
+        reg.mods.clear();
+        logger::info("[mods] extensions cache cleared");
+        return true;
+    }
+    false
+}
+
+// refresh_mods -- called from Explore page on mount.
+// Fetches from GitHub, updates registry, returns fresh list.
+// This is the ONLY place GitHub is contacted.
+#[tauri::command]
+pub async fn refresh_mods() -> Vec<ModInfo> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let mut mods = fetch_from_github();
+        let state = load_state();
+        for m in &mut mods {
+            if let Some(s) = state.mods.get(&m.id) {
+                m.installed = s.installed;
+                m.enabled   = s.enabled;
+            }
+        }
+        let mut reg = REGISTRY.lock().unwrap();
+        reg.mods.clear();
+        for m in &mods { reg.mods.insert(m.id.clone(), m.clone()); }
+        let mut r: Vec<ModInfo> = reg.mods.values().cloned().collect();
+        r.sort_by(|a, b| a.name.cmp(&b.name));
+        r
+    })
+    .await
+    .unwrap_or_default()
+}
+
 #[tauri::command]
 pub fn install_mod(mod_id: String) -> Result<bool, String> {
-    let (source_dir, on_install_file) = {
+    let on_install_file = {
         let reg = REGISTRY.lock().unwrap();
         match reg.mods.get(&mod_id) {
-            Some(m) => (m.source_dir.clone(), m.on_install_file.clone()),
+            Some(m) => m.on_install_file.clone(),
             None    => return Err(DanhawkError::NotFound(mod_id).into()),
         }
     };
 
     let installed_dir = paths::installed_ext_dir(&mod_id);
 
-    // Step 1 — copy source folder → AppData/extensions/<id>/
-    logger::info(&format!("[install] copying '{}' → {}", mod_id, installed_dir.display()));
-    copy_dir(&source_dir, &installed_dir)
+    logger::info(&format!("[install] downloading '{}' from GitHub", mod_id));
+    download_extension_from_github(&mod_id, &installed_dir)
         .map_err(|e| format!("install failed for '{}': {}", mod_id, e))?;
-    logger::info(&format!("[install] '{}' copied successfully", mod_id));
+    logger::info(&format!("[install] '{}' downloaded successfully", mod_id));
 
-    // Step 2 — run on_install hook from installed copy
     if let Some(fname) = on_install_file {
         let hook = installed_dir.join(&fname);
         if hook.exists() {
             logger::info(&format!("[lifecycle] on_install for '{}'", mod_id));
-            if let Err(e) = engines::run_hook(&hook) { logger::warn(&format!("[lifecycle] on_install failed '{}': {}", mod_id, e)); }
+            if let Err(e) = engines::run_hook(&hook) {
+                logger::warn(&format!("[lifecycle] on_install failed '{}': {}", mod_id, e));
+            }
         }
     }
 
-    // Step 3 — mark installed
     let mut reg = REGISTRY.lock().unwrap();
     match reg.mods.get_mut(&mod_id) {
         Some(m) => { m.installed = true; logger::info(&format!("[mods] installed: {}", mod_id)); save_state(&reg); Ok(true) }
@@ -415,7 +597,6 @@ pub fn install_mod(mod_id: String) -> Result<bool, String> {
 
 #[tauri::command]
 pub fn remove_mod(mod_id: String) -> Result<bool, String> {
-    // Step 1 — disable first (kills process, runs on_disable hook)
     let _ = toggle_mod(mod_id.clone(), false);
 
     let on_uninstall_file = {
@@ -425,16 +606,16 @@ pub fn remove_mod(mod_id: String) -> Result<bool, String> {
 
     let installed_dir = paths::installed_ext_dir(&mod_id);
 
-    // Step 2 — run on_uninstall hook from installed copy
     if let Some(fname) = on_uninstall_file {
         let hook = installed_dir.join(&fname);
         if hook.exists() {
             logger::info(&format!("[lifecycle] on_uninstall for '{}'", mod_id));
-            if let Err(e) = engines::run_hook(&hook) { logger::warn(&format!("[lifecycle] on_uninstall failed '{}': {}", mod_id, e)); }
+            if let Err(e) = engines::run_hook(&hook) {
+                logger::warn(&format!("[lifecycle] on_uninstall failed '{}': {}", mod_id, e));
+            }
         }
     }
 
-    // Step 3 — delete installed folder from AppData
     if installed_dir.exists() {
         match fs::remove_dir_all(&installed_dir) {
             Ok(_)  => logger::info(&format!("[uninstall] deleted AppData folder for '{}'", mod_id)),
@@ -442,7 +623,6 @@ pub fn remove_mod(mod_id: String) -> Result<bool, String> {
         }
     }
 
-    // Step 4 — mark uninstalled
     let mut reg = REGISTRY.lock().unwrap();
     if let Some(m) = reg.mods.get_mut(&mod_id) {
         m.installed = false; m.enabled = false;
@@ -500,7 +680,9 @@ pub fn shutdown() {
             let hook = m.runtime_dir().join(fname);
             if hook.exists() {
                 logger::info(&format!("[shutdown] on_disable for '{}'", m.id));
-                if let Err(e) = engines::run_hook(&hook) { logger::warn(&format!("[shutdown] on_disable failed '{}': {}", m.id, e)); }
+                if let Err(e) = engines::run_hook(&hook) {
+                    logger::warn(&format!("[shutdown] on_disable failed '{}': {}", m.id, e));
+                }
             }
         }
     }

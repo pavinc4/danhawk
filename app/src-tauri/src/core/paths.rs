@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-fn appdata_dir() -> PathBuf {
+pub fn appdata_dir() -> PathBuf {
     if let Ok(local) = std::env::var("LOCALAPPDATA") {
         PathBuf::from(local).join("Danhawk")
     } else {

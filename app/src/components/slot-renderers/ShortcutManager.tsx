@@ -185,11 +185,12 @@ function generateAhk(shortcuts: Shortcut[]): string {
 const PHASE = { IDLE: 0, FIRST: 1, WAITING: 2, DONE: 3 } as const;
 type Phase = typeof PHASE[keyof typeof PHASE];
 
-function useCapture(active: boolean, existingShortcuts: Shortcut[], editId?: string) {
-    const [phase, setPhase] = useState<Phase>(PHASE.IDLE);
-    const [keys, setKeys] = useState<string[]>([]);
+function useCapture(active: boolean, existingShortcuts: Shortcut[], editId?: string, initialKeys?: string[]) {
+    const [phase, setPhase] = useState<Phase>(initialKeys?.length ? PHASE.DONE : PHASE.IDLE);
+    const [keys, setKeys] = useState<string[]>(initialKeys ?? []);
     const [conflict, setConflict] = useState(false);
     const [conflictName, setConflictName] = useState("");
+    const [conflictType, setConflictType] = useState("");
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const heldMods = useRef({ ctrl: false, alt: false, shift: false, meta: false });
 
@@ -198,11 +199,12 @@ function useCapture(active: boolean, existingShortcuts: Shortcut[], editId?: str
         const found = existingShortcuts.find(s => s.id !== editId && s.chord.join("+") === chord);
         setConflict(!!found);
         setConflictName(found?.name ?? "");
+        setConflictType(found?.type ?? "");
     }, [existingShortcuts, editId]);
 
     const reset = useCallback(() => {
         if (timerRef.current) clearTimeout(timerRef.current);
-        setPhase(PHASE.IDLE); setKeys([]); setConflict(false); setConflictName("");
+        setPhase(PHASE.IDLE); setKeys([]); setConflict(false); setConflictName(""); setConflictType("");
     }, []);
 
     const handleClick = useCallback(() => {
@@ -252,7 +254,7 @@ function useCapture(active: boolean, existingShortcuts: Shortcut[], editId?: str
         return () => { window.removeEventListener("keydown", onDown, true); window.removeEventListener("keyup", onUp, true); };
     }, [phase, active, checkConflict]);
 
-    return { phase, keys, conflict, conflictName, handleClick, reset };
+    return { phase, keys, conflict, conflictName, conflictType, handleClick, reset };
 }
 
 // ── Key badge ─────────────────────────────────────────────────────────────────
@@ -281,8 +283,8 @@ function KeyBadge({ keys }: { keys: string[] }) {
 
 // ── Capture zone ──────────────────────────────────────────────────────────────
 
-function CaptureZone({ phase, keys, conflict, conflictName, onClick }: {
-    phase: Phase; keys: string[]; conflict: boolean; conflictName?: string; onClick: () => void;
+function CaptureZone({ phase, keys, conflict, conflictName, conflictType, onClick }: {
+    phase: Phase; keys: string[]; conflict: boolean; conflictName?: string; conflictType?: string; onClick: () => void;
 }) {
     const base = "min-h-[88px] flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 cursor-pointer transition-all duration-150 px-4 py-3";
     if (phase === PHASE.IDLE) return (
@@ -309,7 +311,9 @@ function CaptureZone({ phase, keys, conflict, conflictName, onClick }: {
         <div className={`${base} ${conflict ? "border-[#ef5350] bg-[#ef5350]/6" : "border-[#22c55e] bg-[#22c55e]/6"}`} style={{ borderStyle: "solid" }} onClick={onClick}>
             <div className="mb-1.5"><KeyBadge keys={keys} /></div>
             <div className={`text-[11px] font-medium ${conflict ? "text-[#ef5350]" : "text-[#22c55e]"}`}>
-                {conflict ? `⚠ Conflict with "${conflictName}" — click to change` : "✓ Captured — click to change"}
+                {conflict
+                    ? `⚠ Already used by ${conflictType ? conflictType + ": " : ""}"${conflictName}" — click to reassign`
+                    : "✓ Captured — click to change"}
             </div>
         </div>
     );
@@ -324,7 +328,7 @@ function AppModal({ shortcuts, editItem, onSave, onClose }: {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [selected, setSelected] = useState<SystemApp | null>(null);
-    const capture = useCapture(true, shortcuts, editItem?.id);
+    const capture = useCapture(true, shortcuts, editItem?.id, editItem?.chord);
 
     useEffect(() => {
         setLoading(true);
@@ -374,12 +378,8 @@ function AppModal({ shortcuts, editItem, onSave, onClose }: {
                 </div>
                 {/* Capture zone */}
                 <div className="p-4 border-b border-[#1a1a1a] flex-shrink-0">
-                    <CaptureZone phase={capture.phase} keys={capture.keys} conflict={capture.conflict} conflictName={capture.conflictName} onClick={capture.handleClick} />
-                    {capture.conflict && (
-                        <div className="flex items-center gap-2 bg-[#ef5350]/10 border border-[#ef5350]/25 rounded-lg px-3 py-2 text-[12px] text-[#ef5350] mt-2">
-                            Already used by <strong className="ml-1">{capture.conflictName}</strong>
-                        </div>
-                    )}
+                    <CaptureZone phase={capture.phase} keys={capture.keys} conflict={capture.conflict} conflictName={capture.conflictName} conflictType={capture.conflictType} onClick={capture.handleClick} />
+
                 </div>
                 {/* App list */}
                 <div className="p-3 border-b border-[#1a1a1a] flex-shrink-0">
@@ -434,7 +434,7 @@ function LinkModal({ shortcuts, editItem, onSave, onClose }: {
 }) {
     const [name, setName] = useState(editItem?.name ?? "");
     const [url, setUrl] = useState(editItem?.path ?? "");
-    const capture = useCapture(true, shortcuts, editItem?.id);
+    const capture = useCapture(true, shortcuts, editItem?.id, editItem?.chord);
 
     const faviconUrl = url.trim() ? `https://www.google.com/s2/favicons?sz=64&domain=${url.trim()}` : null;
 
@@ -463,8 +463,8 @@ function LinkModal({ shortcuts, editItem, onSave, onClose }: {
                     </button>
                 </div>
                 <div className="p-4 space-y-3">
-                    <CaptureZone phase={capture.phase} keys={capture.keys} conflict={capture.conflict} conflictName={capture.conflictName} onClick={capture.handleClick} />
-                    {capture.conflict && <div className="flex items-center gap-2 bg-[#ef5350]/10 border border-[#ef5350]/25 rounded-lg px-3 py-2 text-[12px] text-[#ef5350]">Already used by <strong className="ml-1">{capture.conflictName}</strong></div>}
+                    <CaptureZone phase={capture.phase} keys={capture.keys} conflict={capture.conflict} conflictName={capture.conflictName} conflictType={capture.conflictType} onClick={capture.handleClick} />
+
                     <div>
                         <label className="block text-[11px] font-semibold text-[#555] uppercase tracking-wider mb-1.5">Link Name</label>
                         <input className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-[13px] text-[#e8e8e8] outline-none focus:border-[#3b8bdb] transition-colors" placeholder="e.g. YouTube" value={name} onChange={e => setName(e.target.value)} />
@@ -491,7 +491,7 @@ function FolderModal({ shortcuts, editItem, onSave, onClose }: {
 }) {
     const [folderPath, setFolderPath] = useState(editItem?.path ?? "");
     const [label, setLabel] = useState(editItem?.name ?? "");
-    const capture = useCapture(true, shortcuts, editItem?.id);
+    const capture = useCapture(true, shortcuts, editItem?.id, editItem?.chord);
 
     const handleSave = () => {
         if (capture.phase !== PHASE.DONE || !capture.keys.length || capture.conflict) return;
@@ -515,8 +515,8 @@ function FolderModal({ shortcuts, editItem, onSave, onClose }: {
                     </button>
                 </div>
                 <div className="p-4 space-y-3">
-                    <CaptureZone phase={capture.phase} keys={capture.keys} conflict={capture.conflict} conflictName={capture.conflictName} onClick={capture.handleClick} />
-                    {capture.conflict && <div className="flex items-center gap-2 bg-[#ef5350]/10 border border-[#ef5350]/25 rounded-lg px-3 py-2 text-[12px] text-[#ef5350]">Already used by <strong className="ml-1">{capture.conflictName}</strong></div>}
+                    <CaptureZone phase={capture.phase} keys={capture.keys} conflict={capture.conflict} conflictName={capture.conflictName} conflictType={capture.conflictType} onClick={capture.handleClick} />
+
                     <div>
                         <label className="block text-[11px] font-semibold text-[#555] uppercase tracking-wider mb-1.5">Folder Path</label>
                         <input className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-[13px] text-[#e8e8e8] outline-none focus:border-[#3b8bdb] transition-colors font-mono" placeholder="C:\Users\..." value={folderPath} onChange={e => { setFolderPath(e.target.value); if (!label) setLabel(e.target.value.split(/[/\\]/).filter(Boolean).pop() ?? ""); }} />
@@ -593,6 +593,17 @@ export function ShortcutManager({ extId, onClose }: ShortcutManagerProps) {
                 }
             }).catch(() => { });
     }, [extId]);
+
+    // Disable AHK while any add/edit modal is open so existing shortcuts
+    // don't fire while the user is pressing keys to set a new chord.
+    // Re-enables automatically when modal closes.
+    useEffect(() => {
+        if (modal !== null) {
+            invoke("toggle_mod", { modId: extId, enabled: false }).catch(() => { });
+        } else {
+            invoke("toggle_mod", { modId: extId, enabled: true }).catch(() => { });
+        }
+    }, [modal, extId]);
 
     const persist = useCallback(async (updated: Shortcut[]) => {
         setShortcuts(updated);
@@ -736,7 +747,7 @@ export function ShortcutManager({ extId, onClose }: ShortcutManagerProps) {
                                     </div>
                                 ) : (
                                     visible.map(s => (
-                                        <div key={s.id} className="group grid grid-cols-3 items-center px-3 py-2.5 rounded-lg border border-transparent hover:bg-[#141414] hover:border-[#1e1e1e] transition-all cursor-default" onClick={() => setModal({ type: s.type, edit: s })}>
+                                        <div key={s.id} className="group grid grid-cols-3 items-center px-3 py-2.5 rounded-lg border border-transparent hover:bg-[#141414] hover:border-[#1e1e1e] transition-all cursor-pointer" onClick={() => setModal({ type: s.type, edit: s })}>
                                             <div className="flex items-center gap-2.5 min-w-0">
                                                 <div className="w-8 h-8 bg-[#1a1a1a] border border-[#222] rounded-lg flex items-center justify-center text-[14px] flex-shrink-0 overflow-hidden">
                                                     {s.iconUrl

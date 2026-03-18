@@ -97,4 +97,5 @@ pub fn stop(
 pub fn stop_all() {
     command::stop_all();
     ahk::stop_all();
+    native::stop_all();
 }

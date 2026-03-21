@@ -24,28 +24,20 @@ pub fn find_dir(name: &str) -> PathBuf {
     exe_dir.join(name)
 }
 
-// Source repo — extensions-repo/ folder (dev only, not present in production)
-// Used only for scanning available extensions and reading display content.
-pub fn extensions_repo_dir() -> PathBuf {
-    find_dir("extensions-repo")
+// Tools repo folder (dev only — not present in production)
+pub fn tools_repo_dir() -> PathBuf {
+    find_dir("tools-repo")
 }
 
-// Alias — keeps existing callers working
-pub fn extensions_dir() -> PathBuf {
-    extensions_repo_dir()
-}
-
-// Installed extensions — AppData runtime copies
-// After Install is clicked, extension folder is copied here.
-// All engine execution and file read/write use this path.
-pub fn installed_extensions_dir() -> PathBuf {
-    let dir = appdata_dir().join("extensions");
+// Installed tools — AppData runtime copies
+pub fn installed_tools_dir() -> PathBuf {
+    let dir = appdata_dir().join("tools");
     let _ = std::fs::create_dir_all(&dir);
     dir
 }
 
-pub fn installed_ext_dir(ext_id: &str) -> PathBuf {
-    installed_extensions_dir().join(ext_id)
+pub fn installed_tool_dir(tool_id: &str) -> PathBuf {
+    installed_tools_dir().join(tool_id)
 }
 
 pub fn logs_dir() -> PathBuf {
@@ -66,16 +58,28 @@ pub fn pids_dir() -> PathBuf {
     dir
 }
 
-pub fn pid_file(mod_id: &str) -> PathBuf {
-    pids_dir().join(format!("{}.pid", mod_id))
+pub fn pid_file(tool_id: &str) -> PathBuf {
+    pids_dir().join(format!("{}.pid", tool_id))
 }
 
+// Bundled AutoHotkey runtime
 pub fn ahk_exe() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let exe_dir = exe.parent()?;
     let prod = exe_dir.join("resources").join("AutoHotkey64.exe");
     if prod.exists() { return Some(prod); }
     let dev = find_dir("resources").join("AutoHotkey64.exe");
+    if dev.exists() { return Some(dev); }
+    None
+}
+
+// Bundled Python runtime
+pub fn python_exe() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let exe_dir = exe.parent()?;
+    let prod = exe_dir.join("resources").join("python").join("python.exe");
+    if prod.exists() { return Some(prod); }
+    let dev = find_dir("resources").join("python").join("python.exe");
     if dev.exists() { return Some(dev); }
     None
 }

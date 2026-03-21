@@ -1,12 +1,12 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import { Header } from "./components/danhawk/header";
-import { CreateModButton } from "./components/danhawk/create-mod-button";
-import { ModStoreProvider } from "./store/mod-store";
+import { CreateToolButton } from "./components/danhawk/create-tool-button";
+import { ToolStoreProvider } from "./store/tool-store";
 import Home from "./pages/Home";
 import Explore from "./pages/Explore";
-import ModDetail from "./pages/ModDetail";
-import CreateMod from "./pages/Create";
+import ToolDetail from "./pages/ToolDetail";
+import CreateTool from "./pages/Create";
 import Settings from "./pages/Settings";
 import About from "./pages/About";
 
@@ -26,23 +26,23 @@ function AppShell() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/explore" element={<Explore />} />
-          <Route path="/mod/:slug" element={<ModDetail />} />
-          <Route path="/create" element={<CreateMod />} />
+          <Route path="/tool/:slug" element={<ToolDetail />} />
+          <Route path="/create" element={<CreateTool />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/about" element={<About />} />
         </Routes>
       </div>
-      {!isCompiler && <CreateModButton />}
+      {!isCompiler && <CreateToolButton />}
     </div>
   );
 }
 
 export default function App() {
   return (
-    <ModStoreProvider>
+    <ToolStoreProvider>
       <BrowserRouter>
         <AppShell />
       </BrowserRouter>
-    </ModStoreProvider>
+    </ToolStoreProvider>
   );
 }

@@ -30,7 +30,7 @@ interface SystemApp {
 }
 
 interface ShortcutManagerProps {
-    extId: string;
+    toolId: string;
     onClose: () => void;
 }
 
@@ -576,7 +576,7 @@ function useToast() {
 type NavItem = "add" | "apps" | "links" | "folders";
 type ModalState = { type: "app"; edit?: Shortcut } | { type: "link"; edit?: Shortcut } | { type: "folder"; edit?: Shortcut } | null;
 
-export function ShortcutManager({ extId, onClose }: ShortcutManagerProps) {
+export function ShortcutManager({ toolId, onClose }: ShortcutManagerProps) {
     const [shortcuts, setShortcuts] = useState<Shortcut[]>([]);
     const [nav, setNav] = useState<NavItem>("add");
     const [search, setSearch] = useState("");
@@ -586,33 +586,33 @@ export function ShortcutManager({ extId, onClose }: ShortcutManagerProps) {
 
     // Load from shortcuts.json on open
     useEffect(() => {
-        invoke<string>("ext_read_file", { extId, filename: DATA_FILE })
+        invoke<string>("tool_read_file", { toolId, filename: DATA_FILE })
             .then(raw => {
                 if (typeof raw === "string" && raw.trim()) {
                     try { const p = JSON.parse(raw); if (Array.isArray(p)) setShortcuts(p); } catch { }
                 }
             }).catch(() => { });
-    }, [extId]);
+    }, [toolId]);
 
     // Disable AHK while any add/edit modal is open so existing shortcuts
     // don't fire while the user is pressing keys to set a new chord.
     // Re-enables automatically when modal closes.
     useEffect(() => {
         if (modal !== null) {
-            invoke("toggle_mod", { modId: extId, enabled: false }).catch(() => { });
+            invoke("toggle_tool", { toolId: toolId, enabled: false }).catch(() => { });
         } else {
-            invoke("toggle_mod", { modId: extId, enabled: true }).catch(() => { });
+            invoke("toggle_tool", { toolId: toolId, enabled: true }).catch(() => { });
         }
-    }, [modal, extId]);
+    }, [modal, toolId]);
 
     const persist = useCallback(async (updated: Shortcut[]) => {
         setShortcuts(updated);
-        await invoke("ext_write_file", { extId, filename: DATA_FILE, content: JSON.stringify(updated, null, 2) }).catch(() => { });
-        await invoke("ext_write_file", { extId, filename: AHK_FILE, content: generateAhk(updated) }).catch(() => { });
+        await invoke("tool_write_file", { toolId, filename: DATA_FILE, content: JSON.stringify(updated, null, 2) }).catch(() => { });
+        await invoke("tool_write_file", { toolId, filename: AHK_FILE, content: generateAhk(updated) }).catch(() => { });
         // Restart AHK to pick up new shortcuts
-        await invoke("toggle_mod", { modId: extId, enabled: false }).catch(() => { });
-        await invoke("toggle_mod", { modId: extId, enabled: true }).catch(() => { });
-    }, [extId]);
+        await invoke("toggle_tool", { toolId: toolId, enabled: false }).catch(() => { });
+        await invoke("toggle_tool", { toolId: toolId, enabled: true }).catch(() => { });
+    }, [toolId]);
 
     const saveShortcut = async (s: Shortcut) => {
         const updated = [...shortcuts.filter(x => x.id !== s.id), s];

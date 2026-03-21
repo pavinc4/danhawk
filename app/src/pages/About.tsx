@@ -11,7 +11,7 @@ export default function AboutPage() {
         </button>
         <div className="flex flex-col items-center justify-center text-center py-10">
           <h1 className="text-[26px] font-bold text-[#e8e8e8] mb-2">Danhawk v1.0.0</h1>
-          <p className="text-[14px] text-[#787878] mb-1">The Windows power tools launcher</p>
+          <p className="text-[14px] text-[#787878] mb-1">Windows power tools launcher</p>
           <p className="text-[14px] text-[#787878] mb-12">
             By{" "}
             <a href="#" className="text-[#3b8bdb] hover:text-[#4a9beb] transition-colors duration-150">Dan</a>
@@ -30,7 +30,7 @@ export default function AboutPage() {
             <h2 className="text-[17px] font-semibold text-[#e8e8e8] mb-4">Built with</h2>
             <div className="flex flex-col gap-2.5 text-[#787878] text-[14px]">
               <p><a href="#" className="text-[#3b8bdb] hover:text-[#4a9beb] transition-colors duration-150">Tauri 2.0</a>{" — Lightweight native app shell"}</p>
-              <p><a href="#" className="text-[#3b8bdb] hover:text-[#4a9beb] transition-colors duration-150">Rust</a>{" — Backend engine, mod system, process management"}</p>
+              <p><a href="#" className="text-[#3b8bdb] hover:text-[#4a9beb] transition-colors duration-150">Rust</a>{" — Backend engine, tool system, process management"}</p>
               <p><a href="#" className="text-[#3b8bdb] hover:text-[#4a9beb] transition-colors duration-150">React + Tailwind CSS</a>{" — UI layer"}</p>
               <p className="text-[#444444]">Other tools and libraries, and a bit of code</p>
             </div>

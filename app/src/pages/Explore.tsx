@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Search, ArrowUpDown, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { ModCard } from "../components/danhawk/mod-card";
-import { useModStore } from "../store/mod-store";
+import { ToolCard } from "../components/danhawk/tool-card";
+import { useToolStore } from "../store/tool-store";
 
 type SortOrder = "az" | "za" | "installed";
 
@@ -11,7 +11,7 @@ export default function ExplorePage() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [sortOrder, setSortOrder] = useState<SortOrder>("az");
   const [showSortMenu, setShowSortMenu] = useState(false);
-  const { mods, loading, isInstalled, refreshFromGitHub } = useModStore();
+  const { tools, loading, isInstalled, refreshFromGitHub } = useToolStore();
   const navigate = useNavigate();
   const [refreshing, setRefreshing] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
@@ -27,7 +27,6 @@ export default function ExplorePage() {
         const online = await invoke<boolean>("check_online");
         if (!online) {
           setIsOffline(true);
-          // Still try to load -- fetch_from_github returns cache when offline
           setRefreshing(true);
           await refreshFromGitHub();
           setRefreshing(false);
@@ -44,30 +43,27 @@ export default function ExplorePage() {
     run();
   }, []);
 
-  // Build category list dynamically from actual extension data
   const categories = useMemo(() => {
-    const cats = Array.from(new Set(mods.map(m => m.category).filter(Boolean))).sort();
+    const cats = Array.from(new Set(tools.map(t => t.category).filter(Boolean))).sort();
     return ["All", ...cats];
-  }, [mods]);
+  }, [tools]);
 
-  // If active category no longer exists in data, reset to All
   const resolvedCategory = categories.includes(activeCategory) ? activeCategory : "All";
 
-  const filteredMods = useMemo(() => {
+  const filteredTools = useMemo(() => {
     const q = searchQuery.toLowerCase();
 
-    let result = mods.filter(mod => {
+    let result = tools.filter(tool => {
       const matchSearch =
         !q ||
-        mod.name.toLowerCase().includes(q) ||
-        mod.description.toLowerCase().includes(q) ||
-        mod.author.toLowerCase().includes(q) ||
-        mod.category.toLowerCase().includes(q);
-      const matchCat = resolvedCategory === "All" || mod.category === resolvedCategory;
+        tool.name.toLowerCase().includes(q) ||
+        tool.description.toLowerCase().includes(q) ||
+        tool.author.toLowerCase().includes(q) ||
+        tool.category.toLowerCase().includes(q);
+      const matchCat = resolvedCategory === "All" || tool.category === resolvedCategory;
       return matchSearch && matchCat;
     });
 
-    // Sort
     if (sortOrder === "az") {
       result = [...result].sort((a, b) => a.name.localeCompare(b.name));
     } else if (sortOrder === "za") {
@@ -82,7 +78,7 @@ export default function ExplorePage() {
     }
 
     return result;
-  }, [mods, searchQuery, resolvedCategory, sortOrder, isInstalled]);
+  }, [tools, searchQuery, resolvedCategory, sortOrder, isInstalled]);
 
   const sortLabels: Record<SortOrder, string> = {
     az: "A → Z",
@@ -97,20 +93,18 @@ export default function ExplorePage() {
           <ArrowLeft className="w-4 h-4 text-[#666666]" />
         </button>
 
-        {/* Search + sort */}
         <div className="flex items-center gap-2 mb-4 mt-2">
           <div className="flex-1 relative group">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#555555] group-focus-within:text-[#777777] transition-colors duration-150" />
             <input
               type="text"
-              placeholder="Search extensions..."
+              placeholder="Search tools..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-[#141414] border border-[#222222] rounded-md text-[#e8e8e8] placeholder:text-[#555555] text-[13px] focus:outline-none focus:border-[#3b8bdb] focus:bg-[#181818] transition-all duration-150"
             />
           </div>
 
-          {/* Sort dropdown */}
           <div className="relative" onClick={e => e.stopPropagation()}>
             <button
               onClick={() => setShowSortMenu(v => !v)}
@@ -142,7 +136,6 @@ export default function ExplorePage() {
           </div>
         </div>
 
-        {/* Category pills — built from real extension data */}
         <div className="flex items-center gap-2 mb-5 flex-wrap">
           {categories.map(cat => (
             <button
@@ -158,41 +151,40 @@ export default function ExplorePage() {
           ))}
         </div>
 
-        {/* Loading overlay — shown while refreshing from GitHub */}
         {refreshing && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#0d0d0d]/50">
             <svg className="animate-spin w-5 h-5 text-[#3b8bdb]" viewBox="0 0 24 24" fill="none">
               <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
               <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
             </svg>
-            <p className="text-[#555555] text-[12px]">Loading extensions...</p>
+            <p className="text-[#555555] text-[12px]">Loading tools...</p>
           </div>
         )}
 
         {loading && !refreshing ? (
           <div className="flex items-center justify-center py-16">
-            <p className="text-[#555555] text-[13px]">Loading extensions...</p>
+            <p className="text-[#555555] text-[13px]">Loading tools...</p>
           </div>
-        ) : filteredMods.length > 0 ? (
+        ) : filteredTools.length > 0 ? (
           <div className={`grid grid-cols-3 gap-3 items-start transition-opacity duration-300 ${refreshing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
-            {filteredMods.map((mod, index) => (
+            {filteredTools.map((tool, index) => (
               <div
-                key={mod.id}
+                key={tool.id}
                 className="animate-in fade-in slide-in-from-bottom-2"
                 style={{ animationDelay: `${index * 30}ms`, animationFillMode: "backwards" }}
               >
-                <ModCard mod={mod} />
+                <ToolCard tool={tool} />
               </div>
             ))}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-16">
             <p className="text-[#555555] text-[13px]">
-              {isOffline && mods.length === 0
-                ? "No internet. Connect once to load extensions, then they work offline too."
+              {isOffline && tools.length === 0
+                ? "No internet. Connect once to load tools, then they work offline too."
                 : searchQuery || resolvedCategory !== "All"
-                  ? "No extensions match your search."
-                  : refreshing ? "Fetching extensions..." : "No extensions available."}
+                  ? "No tools match your search."
+                  : refreshing ? "Fetching tools..." : "No tools available."}
             </p>
           </div>
         )}

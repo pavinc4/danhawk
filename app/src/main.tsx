@@ -10,7 +10,7 @@ document.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.shiftKey && e.key === "I") { e.preventDefault(); return; }
   if (e.ctrlKey && e.shiftKey && e.key === "J") { e.preventDefault(); return; }
   // NOTE: Ctrl+Shift+C is intentionally NOT blocked here —
-  // it is used by the Quick Calculator AHK extension as a global hotkey.
+  // it is used by the Open Calculator tool as a global hotkey.
   // AHK registers at Win32 level so JS blocking it here would only break
   // devtools without affecting the hotkey functionality.
   if (e.ctrlKey && e.key === "u") { e.preventDefault(); return; }

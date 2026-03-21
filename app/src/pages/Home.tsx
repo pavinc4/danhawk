@@ -1,74 +1,70 @@
 import { Package, FolderOpen, ArrowRight, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
-import { ModCard } from "../components/danhawk/mod-card";
-import { useModStore } from "../store/mod-store";
+import { ToolCard } from "../components/danhawk/tool-card";
+import { useToolStore } from "../store/tool-store";
 
 export default function HomePage() {
-  const { mods, getInstalledMods, isEnabled } = useModStore();
-  const installedMods = getInstalledMods().filter(m => !isEnabled(m.id));
-  const activeMods = mods.filter(m => isEnabled(m.id));
+  const { tools, getInstalledTools, isEnabled } = useToolStore();
+  const installedTools = getInstalledTools().filter(t => !isEnabled(t.id));
+  const activeTools = tools.filter(t => isEnabled(t.id));
 
   return (
     <div className="bg-[#0d0d0d] min-h-full px-8 pb-24">
 
-      {/* ── Active extensions ─────────────────────────────────────────── */}
+      {/* ── Active tools ──────────────────────────────────────────────── */}
       <section className="mt-6 mb-8">
         <h2 className="flex items-center gap-2.5 text-[15px] font-semibold text-[#e8e8e8] mb-5">
           <Zap className="w-4 h-4 text-[#3dba6e]" />
           Active
         </h2>
-        {activeMods.length === 0 ? (
+        {activeTools.length === 0 ? (
           <div className="flex items-center gap-3 px-4 py-3 bg-[#111] border border-[#1e1e1e] rounded-xl">
             <div className="w-2 h-2 rounded-full bg-[#2a2a2a] flex-shrink-0" />
-            <p className="text-[#444] text-[12px]">No extensions active — toggle one on to see it here</p>
+            <p className="text-[#444] text-[12px]">No tools active — toggle one on to see it here</p>
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-3">
-            {activeMods.map((mod, i) => (
+            {activeTools.map((tool, i) => (
               <div
-                key={mod.id}
+                key={tool.id}
                 className="animate-in fade-in"
                 style={{ animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}
               >
-                <ModCard mod={mod} />
+                <ToolCard tool={tool} />
               </div>
             ))}
           </div>
         )}
       </section>
 
-      {/* ── Installed extensions ──────────────────────────────────────── */}
+      {/* ── Installed tools ───────────────────────────────────────────── */}
       <section>
         <h2 className="flex items-center gap-2.5 text-[15px] font-semibold text-[#e8e8e8] mb-5">
           <Package className="w-4 h-4 text-[#666666]" />
           Installed
         </h2>
-        {getInstalledMods().length === 0 ? (
-          // Nothing installed at all — big empty state with browse button
+        {getInstalledTools().length === 0 ? (
           <div className="flex flex-col items-center justify-center py-6 text-center">
             <div className="w-16 h-16 mb-4 flex items-center justify-center rounded-xl bg-[#141414] border border-[#222222]">
               <FolderOpen className="w-8 h-8 text-[#333333]" />
             </div>
-            <p className="text-[#555555] text-[13px] mb-5">No extensions installed yet</p>
+            <p className="text-[#555555] text-[13px] mb-5">No tools installed yet</p>
             <Link
               to="/explore"
               className="px-4 py-2 bg-[#3b8bdb] text-white rounded-lg text-[12px] font-medium hover:bg-[#4a9beb] transition-all duration-150"
             >
-              Browse Extensions
+              Browse Tools
             </Link>
           </div>
         ) : (
-          // Some installed — show inactive ones + always show Explore card last
-          // When installedMods is empty (all active), Explore card is the only item
-          // — use justify-center so it sits in the middle column, not left-aligned
-          <div className={"grid grid-cols-3 gap-3" + (installedMods.length === 0 ? " [&>*:only-child]:col-start-2" : "")}>
-            {installedMods.map((mod, i) => (
+          <div className={"grid grid-cols-3 gap-3" + (installedTools.length === 0 ? " [&>*:only-child]:col-start-2" : "")}>
+            {installedTools.map((tool, i) => (
               <div
-                key={mod.id}
+                key={tool.id}
                 className="animate-in fade-in"
                 style={{ animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}
               >
-                <ModCard mod={mod} />
+                <ToolCard tool={tool} />
               </div>
             ))}
             <Link

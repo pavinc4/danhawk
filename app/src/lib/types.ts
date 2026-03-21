@@ -1,4 +1,4 @@
-export interface Extension {
+export interface Tool {
   id: string;
   name: string;
   slug: string;
@@ -10,53 +10,46 @@ export interface Extension {
   icon: string;
   iconColor: string;
   iconBg: string;
-  modType: "official" | "custom";
+  toolType: "official" | "custom";
   removable: boolean;
   editable: boolean;
   installed: boolean;
   enabled: boolean;
   iconFile?: string;
-  detailsMd: string;
-  changelogMd: string;
-  entrySource: string;
-  sourceVisible: boolean;
-  ui?: ExtensionUI;
+  infoTabs: InfoTab[];
+  ui?: ToolUI;
 }
 
-// Alias — existing imports keep working
-export type Mod = Extension;
+export interface InfoTab {
+  label: string;   // filename without .md, capitalized e.g. "Details", "Changelog"
+  content: string; // markdown content
+}
 
-export interface ExtensionUI {
-  // Zone 1 — buttons injected beside Uninstall in the action bar
+export interface ToolUI {
   detail_actions?: DetailActionSlot[];
-  // Zone 2 — extra tabs added to the tab bar
   detail_tabs?: DetailTabSlot[];
-  // Zone 3 — side panel shown left of tab content (only when declared)
   side_panel?: SidePanelSlot;
-  // Zone 5 — status strip at the bottom of the detail page (only when declared)
   status_bar?: StatusBarSlot;
 }
 
-export type ModUI = ExtensionUI;
-
 export interface DetailActionSlot {
-  type: string;   // maps to DETAIL_ACTION_RENDERERS key
-  label: string;  // button text — ALWAYS from manifest, never hardcoded in component
+  type: string;
+  label: string;
 }
 
 export interface DetailTabSlot {
-  type: string;   // maps to DETAIL_TAB_RENDERERS key
-  label: string;  // tab name — ALWAYS from manifest, never hardcoded in component
-  id: string;     // unique id for activeTab state
+  type: string;
+  label: string;
+  id: string;
 }
 
 export interface SidePanelSlot {
-  type: string;   // maps to SIDE_PANEL_RENDERERS key
+  type: string;
 }
 
 export interface StatusBarSlot {
-  type: string;   // maps to STATUS_BAR_RENDERERS key
-  label?: string; // optional text — from manifest
+  type: string;
+  label?: string;
 }
 
 export interface AppSettings {
@@ -65,5 +58,5 @@ export interface AppSettings {
   startWithWindows: boolean;
   startMinimized: boolean;
   language: string;
-  modsPath: string;
+  toolsPath: string;
 }

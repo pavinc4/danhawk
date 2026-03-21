@@ -9,6 +9,7 @@ import CreateTool from "./pages/Create";
 import Settings from "./pages/Settings";
 import About from "./pages/About";
 import Changelog from "./pages/changelog";
+import Feedback from "./pages/Feedback";
 
 function AppShell() {
   const { pathname } = useLocation();
@@ -73,6 +74,7 @@ function AppShell() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/about" element={<About />} />
             <Route path="/changelog" element={<Changelog />} />
+            <Route path="/feedback" element={<Feedback />} />
           </Routes>
         </div>
       </div>

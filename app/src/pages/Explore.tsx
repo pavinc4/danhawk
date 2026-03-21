@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Search, ArrowUpDown, ArrowLeft } from "lucide-react";
+import { Search, ArrowUpDown, ArrowLeft, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ToolCard } from "../components/danhawk/tool-card";
 import { useToolStore } from "../store/tool-store";
@@ -11,37 +11,45 @@ export default function ExplorePage() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [sortOrder, setSortOrder] = useState<SortOrder>("az");
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<string | null>(null);
   const { tools, loading, isInstalled, refreshFromGitHub } = useToolStore();
   const navigate = useNavigate();
-  const [refreshing, setRefreshing] = useState(false);
-  const [isOffline, setIsOffline] = useState(false);
-  const hasFetched = useRef(false);
+  const mountedRef = useRef(false);
 
+  // On mount — load from cache only, no GitHub call
   useEffect(() => {
-    if (hasFetched.current) return;
-    hasFetched.current = true;
+    if (mountedRef.current) return;
+    mountedRef.current = true;
 
-    const run = async () => {
-      try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        const online = await invoke<boolean>("check_online");
-        if (!online) {
-          setIsOffline(true);
-          setRefreshing(true);
-          await refreshFromGitHub();
-          setRefreshing(false);
-          return;
-        }
-      } catch { /* tauri not available */ }
-
-      setIsOffline(false);
-      setRefreshing(true);
-      await refreshFromGitHub();
-      setRefreshing(false);
+    const loadCache = async () => {
+      // Only call refreshFromGitHub if tools list is empty (nothing cached yet)
+      // This handles first-ever launch where there's no cache at all
+      if (tools.length === 0) {
+        try {
+          const { invoke } = await import("@tauri-apps/api/core");
+          // Just load what's already cached — no GitHub hit
+          // get_tools returns cached data from state, so this is safe
+          await invoke("get_tools");
+        } catch { /* tauri not available in browser */ }
+      }
     };
 
-    run();
+    loadCache();
   }, []);
+
+  // Manual refresh — the ONLY place GitHub gets called from Explore
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await refreshFromGitHub();
+      const now = new Date();
+      setLastRefreshed(`${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(tools.map(t => t.category).filter(Boolean))).sort();
@@ -89,10 +97,30 @@ export default function ExplorePage() {
   return (
     <div className="bg-[#0d0d0d] min-h-full" onClick={() => setShowSortMenu(false)}>
       <main className="px-8 pb-24 relative">
-        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-[#1c1c1c] rounded-md transition-colors duration-150 mt-4 mb-2 flex-shrink-0">
-          <ArrowLeft className="w-4 h-4 text-[#666666]" />
-        </button>
 
+        {/* Top bar — back + refresh */}
+        <div className="flex items-center justify-between mt-4 mb-2">
+          <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-[#1c1c1c] rounded-md transition-colors duration-150">
+            <ArrowLeft className="w-4 h-4 text-[#666666]" />
+          </button>
+
+          <div className="flex items-center gap-2">
+            {lastRefreshed && (
+              <span className="text-[11px] text-[#444444]">Updated {lastRefreshed}</span>
+            )}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title="Refresh tool list from GitHub"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#141414] border border-[#222222] rounded-md text-[12px] text-[#666666] hover:border-[#333333] hover:text-[#e8e8e8] hover:bg-[#181818] transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              <span>{refreshing ? "Refreshing..." : "Refresh"}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Search + sort */}
         <div className="flex items-center gap-2 mb-4 mt-2">
           <div className="flex-1 relative group">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#555555] group-focus-within:text-[#777777] transition-colors duration-150" />
@@ -136,34 +164,44 @@ export default function ExplorePage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mb-5 flex-wrap">
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1 rounded-full text-[12px] font-medium border transition-all duration-150 ${resolvedCategory === cat
-                ? "bg-[#3b8bdb] border-[#3b8bdb] text-white"
-                : "bg-transparent border-[#222222] text-[#888888] hover:border-[#333333] hover:text-[#e8e8e8]"
-                }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        {refreshing && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#0d0d0d]/50">
-            <svg className="animate-spin w-5 h-5 text-[#3b8bdb]" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-              <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
-            </svg>
-            <p className="text-[#555555] text-[12px]">Loading tools...</p>
+        {/* Category pills */}
+        {categories.length > 1 && (
+          <div className="flex items-center gap-2 mb-5 flex-wrap">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-3 py-1 rounded-full text-[12px] font-medium border transition-all duration-150 ${resolvedCategory === cat
+                  ? "bg-[#3b8bdb] border-[#3b8bdb] text-white"
+                  : "bg-transparent border-[#222222] text-[#888888] hover:border-[#333333] hover:text-[#e8e8e8]"
+                  }`}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         )}
 
-        {loading && !refreshing ? (
+        {/* Content */}
+        {loading ? (
           <div className="flex items-center justify-center py-16">
-            <p className="text-[#555555] text-[13px]">Loading tools...</p>
+            <p className="text-[#555555] text-[13px]">Loading...</p>
+          </div>
+        ) : tools.length === 0 ? (
+          // No cache at all — prompt user to refresh
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#141414] border border-[#222222] flex items-center justify-center">
+              <RefreshCw className="w-5 h-5 text-[#444444]" />
+            </div>
+            <p className="text-[#555555] text-[13px]">No tools loaded yet</p>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="px-4 py-2 bg-[#3b8bdb] text-white rounded-lg text-[12px] font-medium hover:bg-[#4a9beb] transition-all duration-150 disabled:opacity-50 flex items-center gap-2"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Loading..." : "Load tools from GitHub"}
+            </button>
           </div>
         ) : filteredTools.length > 0 ? (
           <div className={`grid grid-cols-3 gap-3 items-start transition-opacity duration-300 ${refreshing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
@@ -180,11 +218,9 @@ export default function ExplorePage() {
         ) : (
           <div className="flex flex-col items-center justify-center py-16">
             <p className="text-[#555555] text-[13px]">
-              {isOffline && tools.length === 0
-                ? "No internet. Connect once to load tools, then they work offline too."
-                : searchQuery || resolvedCategory !== "All"
-                  ? "No tools match your search."
-                  : refreshing ? "Fetching tools..." : "No tools available."}
+              {searchQuery || resolvedCategory !== "All"
+                ? "No tools match your search."
+                : "No tools available."}
             </p>
           </div>
         )}

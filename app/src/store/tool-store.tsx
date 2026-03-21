@@ -32,10 +32,12 @@ interface ToolStoreContextType {
   loading: boolean;
   toolStates: Record<string, ToolState>;
   installingIds: Set<string>;
+  togglingIds: Set<string>;
   toasts: Toast[];
   isInstalled: (id: string) => boolean;
   isEnabled: (id: string) => boolean;
   isInstalling: (id: string) => boolean;
+  isToggling: (id: string) => boolean;
   install: (id: string) => Promise<void>;
   uninstall: (id: string) => Promise<void>;
   toggle: (id: string) => Promise<void>;
@@ -50,6 +52,7 @@ export function ToolStoreProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [toolStates, setToolStates] = useState<Record<string, ToolState>>({});
   const [installingIds, setInstallingIds] = useState<Set<string>>(new Set());
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const showToast = useCallback((message: string, type: Toast["type"] = "activate") => {
@@ -59,8 +62,9 @@ export function ToolStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isInstalled = (id: string) => toolStates[id]?.installed ?? false;
-  const isEnabled   = (id: string) => toolStates[id]?.enabled ?? false;
+  const isEnabled = (id: string) => toolStates[id]?.enabled ?? false;
   const isInstalling = (id: string) => installingIds.has(id);
+  const isToggling = (id: string) => togglingIds.has(id);
 
   const install = async (id: string) => {
     setInstallingIds((prev) => new Set(prev).add(id));
@@ -95,12 +99,18 @@ export function ToolStoreProvider({ children }: { children: ReactNode }) {
   };
 
   const toggle = async (id: string) => {
+    // Guard — if already toggling this tool, ignore the click entirely
+    if (togglingIds.has(id)) return;
+
     const next = !toolStates[id]?.enabled;
+    setTogglingIds((prev) => new Set(prev).add(id));
     try {
       await invoke("toggle_tool", { toolId: id, enabled: next });
       setToolStates((prev) => ({ ...prev, [id]: { ...prev[id], enabled: next } }));
     } catch {
       console.error(`toggle_tool failed for ${id}`);
+    } finally {
+      setTogglingIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
     }
   };
 
@@ -122,8 +132,8 @@ export function ToolStoreProvider({ children }: { children: ReactNode }) {
 
   return (
     <ToolStoreContext.Provider value={{
-      tools, loading, toolStates, installingIds, toasts,
-      isInstalled, isEnabled, isInstalling,
+      tools, loading, toolStates, installingIds, togglingIds, toasts,
+      isInstalled, isEnabled, isInstalling, isToggling,
       install, uninstall, toggle,
       getInstalledTools,
       refreshFromGitHub,

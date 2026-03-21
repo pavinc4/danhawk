@@ -56,11 +56,12 @@ function renderInline(text: string): React.ReactNode {
 
 // ── Internal components ───────────────────────────────────────────────────────
 
-function ToolToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+function ToolToggle({ enabled, toggling, onToggle }: { enabled: boolean; toggling: boolean; onToggle: () => void }) {
   return (
     <button
       onClick={onToggle}
-      className="relative flex-shrink-0 rounded-full transition-colors duration-200"
+      disabled={toggling}
+      className="relative flex-shrink-0 rounded-full transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
       style={{
         width: 40, height: 22,
         backgroundColor: enabled ? "#3dba6e" : "#2a2a2a",
@@ -178,7 +179,7 @@ export default function ToolDetailPage() {
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showUninstallModal, setShowUninstallModal] = useState(false);
 
-  const { tools, isInstalled, isEnabled, isInstalling, install, uninstall, toggle } = useToolStore();
+  const { tools, isInstalled, isEnabled, isInstalling, isToggling, install, uninstall, toggle } = useToolStore();
   const tool = tools.find((t) => t.slug === params.slug);
 
   if (!tool) return (
@@ -190,6 +191,7 @@ export default function ToolDetailPage() {
   const installed = isInstalled(tool.id);
   const enabled = isEnabled(tool.id);
   const installing = isInstalling(tool.id);
+  const toggling = isToggling(tool.id);
 
   // ── Dynamic tab list ─────────────────────────────────────────────────────────
   // info/ folder .md files become tabs automatically.
@@ -242,7 +244,7 @@ export default function ToolDetailPage() {
               </button>
             ) : (
               <>
-                <ToolToggle enabled={enabled} onToggle={() => toggle(tool.id)} />
+                <ToolToggle enabled={enabled} toggling={toggling} onToggle={() => toggle(tool.id)} />
                 <span className="text-[12px] text-[#555555]">{enabled ? "Enabled" : "Disabled"}</span>
                 <button
                   disabled={installing}

@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (val: boolean) => void }) {
   return (
@@ -16,7 +15,6 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (val: boole
 }
 
 export default function SettingsPage() {
-  const navigate = useNavigate();
   const [language, setLanguage] = useState("English");
   const [checkUpdates, setCheckUpdates] = useState(true);
   const [developerMode, setDeveloperMode] = useState(true);
@@ -27,11 +25,17 @@ export default function SettingsPage() {
   const languages = ["English", "Español", "Français", "Deutsch", "日本語", "中文", "한국어", "Português", "Italiano", "Русский"];
 
   return (
-    <div className="bg-[#0d0d0d] min-h-full">
-      <main className="px-8 pb-24 max-w-3xl animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-[#1c1c1c] rounded-md transition-colors duration-150 mt-4 mb-2 flex-shrink-0">
-          <ArrowLeft className="w-4 h-4 text-[#666666]" />
-        </button>
+    <div className="flex flex-col h-full bg-[#0d0d0d]" style={{ minHeight: "100%" }}>
+
+      {/* Page header */}
+      <div
+        className="flex-shrink-0 flex items-center px-6"
+        style={{ height: 56, borderBottom: "1px solid #1e1e1e" }}
+      >
+        <h1 className="text-[20px] font-semibold text-[#e8e8e8]">Settings</h1>
+      </div>
+
+      <main className="flex-1 overflow-y-auto px-8 py-6 max-w-3xl">
         <section className="mb-8">
           <h3 className="text-[#3b8bdb] font-semibold text-[14px] mb-1">Language</h3>
           <p className="text-[12px] text-[#787878] mb-1">Select your preferred display language for Danhawk.</p>
@@ -52,33 +56,36 @@ export default function SettingsPage() {
 
         <section className="mb-8">
           <h3 className="text-[#3b8bdb] font-semibold text-[14px] mb-1">Check for updates</h3>
-          <p className="text-[12px] text-[#787878] mb-3">Automatically check for and notify about new versions of Danhawk and installed mods.</p>
+          <p className="text-[12px] text-[#787878] mb-3">Automatically check for and notify about new versions of Danhawk and installed tools.</p>
           <Toggle checked={checkUpdates} onChange={setCheckUpdates} />
         </section>
 
         <section className="mb-8">
           <h3 className="text-[#3b8bdb] font-semibold text-[14px] mb-1">Developer mode</h3>
-          <p className="text-[12px] text-[#787878] mb-3">Show actions for developers, such as creating and modifying mods.</p>
+          <p className="text-[12px] text-[#787878] mb-3">Show actions for developers, such as creating and modifying tools.</p>
           <Toggle checked={developerMode} onChange={setDeveloperMode} />
         </section>
 
-        <section className="border border-[#222222] rounded-lg bg-[#141414] overflow-hidden">
+        <section className="border border-[#1e1e1e] rounded-lg overflow-hidden" style={{ backgroundColor: "#111111" }}>
           <button
             onClick={() => setAdvancedOpen(!advancedOpen)}
-            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[#181818] transition-colors duration-150"
+            className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors duration-150"
+            style={{ backgroundColor: "transparent" }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#1e1e1e")}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
           >
             <span className={`transition-transform duration-200 ${advancedOpen ? "rotate-90" : ""}`}>
-              <ChevronRight className="w-4 h-4 text-[#666666]" />
+              <ChevronRight className="w-4 h-4" style={{ color: "#4d4d4d" }} />
             </span>
             <span className="font-medium text-[#e8e8e8] text-[14px]">Advanced settings</span>
           </button>
 
           <div className={`grid transition-all duration-200 ${advancedOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
             <div className="overflow-hidden">
-              <div className="px-4 pb-4 space-y-5 border-t border-[#222222] pt-4 mx-4">
+              <div className="px-4 pb-4 space-y-5 pt-4 mx-4" style={{ borderTop: "1px solid #1e1e1e" }}>
                 <div>
                   <h4 className="text-[13px] font-medium text-[#e8e8e8] mb-1">Safe mode</h4>
-                  <p className="text-[11px] text-[#787878] mb-2">Disable all mods on startup. Useful for troubleshooting.</p>
+                  <p className="text-[11px] text-[#787878] mb-2">Disable all tools on startup. Useful for troubleshooting.</p>
                   <Toggle checked={safeMode} onChange={setSafeMode} />
                 </div>
                 <div>
@@ -87,16 +94,22 @@ export default function SettingsPage() {
                   <Toggle checked={logging} onChange={setLogging} />
                 </div>
                 <div>
-                  <h4 className="text-[13px] font-medium text-[#e8e8e8] mb-1">Mod installation path</h4>
-                  <p className="text-[11px] text-[#787878] mb-2">Directory where mods are stored.</p>
+                  <h4 className="text-[13px] font-medium text-[#e8e8e8] mb-1">Tool installation path</h4>
+                  <p className="text-[11px] text-[#787878] mb-2">Directory where tools are stored.</p>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
-                      defaultValue="C:\\ProgramData\\Danhawk\\Mods"
-                      className="flex-1 px-3 py-2 bg-[#0d0d0d] border border-[#222222] rounded-md text-[12px] text-[#e8e8e8] focus:outline-none focus:border-[#3b8bdb] transition-all duration-150"
+                      defaultValue="C:\\ProgramData\\Danhawk\\Tools"
+                      className="flex-1 px-3 py-2 rounded-md text-[12px] text-[#e8e8e8] focus:outline-none focus:border-[#3b8bdb] transition-all duration-150"
+                      style={{ backgroundColor: "#0d0d0d", border: "1px solid #1e1e1e" }}
                       readOnly
                     />
-                    <button className="px-3 py-2 bg-[#1c1c1c] border border-[#222222] rounded-md text-[12px] font-medium text-[#e8e8e8] hover:border-[#333333] hover:bg-[#222222] active:scale-[0.98] transition-all duration-150">
+                    <button
+                      className="px-3 py-2 rounded-md text-[12px] font-medium text-[#e8e8e8] transition-all duration-150"
+                      style={{ backgroundColor: "#1e1e1e", border: "1px solid #1e1e1e" }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = "#3c3c3c")}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = "#1e1e1e")}
+                    >
                       Browse
                     </button>
                   </div>

@@ -25,7 +25,7 @@ export default function SettingsPage() {
   const languages = ["English", "Español", "Français", "Deutsch", "日本語", "中文", "한국어", "Português", "Italiano", "Русский"];
 
   return (
-    <div className="flex flex-col h-full bg-[#0d0d0d]" style={{ minHeight: "100%" }}>
+    <div className="flex flex-col bg-[#0d0d0d]" style={{ height: "100%", overflow: "hidden", minHeight: 0 }}>
 
       {/* Page header */}
       <div
@@ -35,7 +35,7 @@ export default function SettingsPage() {
         <h1 className="text-[20px] font-semibold text-[#e8e8e8]">Settings</h1>
       </div>
 
-      <main className="flex-1 overflow-y-auto px-8 py-6 max-w-3xl">
+      <main className="flex-1 overflow-y-auto px-5 py-5 max-w-3xl">
         <section className="mb-8">
           <h3 className="text-[#3b8bdb] font-semibold text-[14px] mb-1">Language</h3>
           <p className="text-[12px] text-[#787878] mb-1">Select your preferred display language for Danhawk.</p>

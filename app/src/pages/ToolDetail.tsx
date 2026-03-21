@@ -183,7 +183,7 @@ export default function ToolDetailPage() {
   const tool = tools.find((t) => t.slug === params.slug);
 
   if (!tool) return (
-    <div className="bg-[#0d0d0d] min-h-full flex items-center justify-center h-64">
+    <div className="bg-[#0d0d0d] h-full flex items-center justify-center h-64">
       <p className="text-[#555555]">Tool not found</p>
     </div>
   );
@@ -206,103 +206,117 @@ export default function ToolDetailPage() {
   const IconComponent = ((Icons as unknown) as Record<string, LucideIcon>)[tool.icon] ?? Icons.Box;
 
   return (
-    <div className="bg-[#0d0d0d] min-h-full">
-      <main className="px-8 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-200">
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-3 mt-4">
-            <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-[#1c1c1c] rounded-md transition-colors duration-150 flex-shrink-0">
-              <ArrowLeft className="w-4 h-4 text-[#666666]" />
-            </button>
-            <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center border border-[#2a2a2a]"
-              style={{ backgroundColor: tool.iconFile ? "#1a1a1a" : tool.iconBg }}>
-              {tool.iconFile
-                ? <img src={tool.iconFile} alt={tool.name} className="w-6 h-6 object-contain rounded" />
-                : <IconComponent className="w-5 h-5" style={{ color: tool.iconColor }} />}
+    <div className="bg-[#0d0d0d] h-full flex flex-col overflow-hidden">
+
+      {/* Back bar — fixed at top, never scrolls */}
+      <div className="flex-shrink-0 flex items-center px-4 py-2 border-b border-[#1e1e1e]">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 p-1.5 hover:bg-[#1c1c1c] rounded-md transition-colors duration-150"
+        >
+          <ArrowLeft className="w-4 h-4 text-[#555555]" />
+          <span className="text-[12px] text-[#555555] hover:text-[#888888]">Back</span>
+        </button>
+      </div>
+
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto">
+        <main className="px-5 pb-10 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="mb-4">
+            <div className="flex items-center gap-3 mb-3 mt-3">
+              <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
+                {tool.iconFile
+                  ? <img src={tool.iconFile} alt={tool.name} className="w-10 h-10 object-contain" />
+                  : <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: tool.iconBg }}>
+                    <IconComponent className="w-5 h-5" style={{ color: tool.iconColor }} />
+                  </div>
+                }
+              </div>
+              <h1 className="text-[17px] font-semibold text-[#e8e8e8] truncate">{tool.name}</h1>
+              <span className="flex-shrink-0 px-2 py-0.5 bg-[#1c1c1c] text-[11px] text-[#555555] rounded font-mono border border-[#222222]">
+                {tool.slug}
+              </span>
             </div>
-            <h1 className="text-[17px] font-semibold text-[#e8e8e8] truncate">{tool.name}</h1>
-            <span className="flex-shrink-0 px-2 py-0.5 bg-[#1c1c1c] text-[11px] text-[#555555] rounded font-mono border border-[#222222]">
-              {tool.slug}
-            </span>
-          </div>
 
-          <div className="flex items-center gap-2 text-[11px] text-[#555555] mb-2 ml-[72px]">
-            <User className="w-3 h-3" />
-            <span>{tool.author}</span>
-            {installed && <><span className="text-[#333]">|</span><StatusDot active={enabled} /></>}
-          </div>
+            <div className="flex items-center gap-2 text-[11px] text-[#555555] mb-2">
+              <User className="w-3 h-3" />
+              <span>{tool.author}</span>
+              {installed && <><span className="text-[#333]">|</span><StatusDot active={enabled} /></>}
+            </div>
 
-          <p className="text-[12px] text-[#787878] ml-[72px] mb-4 max-w-2xl">{tool.description}</p>
+            <p className="text-[12px] text-[#787878] mb-4 max-w-2xl">{tool.description}</p>
 
-          <div className="flex items-center gap-3 ml-[72px]">
-            {!installed ? (
-              <button
-                disabled={installing}
-                onClick={() => setShowInstallModal(true)}
-                className="px-4 py-1.5 bg-[#3b8bdb] text-white rounded-md text-[12px] font-medium hover:bg-[#4a9beb] active:scale-[0.98] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {installing ? <><Spinner />Installing...</> : "Install"}
-              </button>
-            ) : (
-              <>
-                <ToolToggle enabled={enabled} toggling={toggling} onToggle={() => toggle(tool.id)} />
-                <span className="text-[12px] text-[#555555]">{enabled ? "Enabled" : "Disabled"}</span>
+            <div className="flex items-center gap-3">
+              {!installed ? (
                 <button
                   disabled={installing}
-                  onClick={() => setShowUninstallModal(true)}
-                  className="ml-1 px-3 py-1.5 border border-[#c0392b]/40 text-[#c0392b] rounded-md text-[12px] hover:border-[#c0392b]/70 hover:bg-[#c0392b]/10 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                  onClick={() => setShowInstallModal(true)}
+                  className="px-4 py-1.5 bg-[#3b8bdb] text-white rounded-md text-[12px] font-medium hover:bg-[#4a9beb] active:scale-[0.98] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {installing ? <><Spinner />Removing...</> : "Uninstall"}
+                  {installing ? <><Spinner />Installing...</> : "Install"}
                 </button>
-                <DetailActionSlots tool={tool} />
-              </>
+              ) : (
+                <>
+                  <ToolToggle enabled={enabled} toggling={toggling} onToggle={() => toggle(tool.id)} />
+                  <span className="text-[12px] text-[#555555]">{enabled ? "Enabled" : "Disabled"}</span>
+                  <button
+                    disabled={installing}
+                    onClick={() => setShowUninstallModal(true)}
+                    className="ml-1 px-3 py-1.5 border border-[#c0392b]/40 text-[#c0392b] rounded-md text-[12px] hover:border-[#c0392b]/70 hover:bg-[#c0392b]/10 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                  >
+                    {installing ? <><Spinner />Removing...</> : "Uninstall"}
+                  </button>
+                  <DetailActionSlots tool={tool} />
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Tab bar — dynamic from info/ folder */}
+          {allTabs.length > 0 && (
+            <div className="flex items-center gap-6 border-b border-[#1e1e1e] mb-6 pr-5">
+              {allTabs.map((tab) => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  className={cn("pb-3 text-[13px] font-medium transition-colors duration-150 relative",
+                    currentTab === tab.id ? "text-[#3b8bdb]" : "text-[#888888] hover:text-[#e8e8e8]")}>
+                  {tab.label}
+                  {currentTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3b8bdb] rounded-full" />}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Tab content */}
+          <div className="pr-5">
+
+            {/* Info tabs — from info/ folder markdown */}
+            {infoTabItems.map(tab => (
+              currentTab === tab.id && (
+                <div key={tab.id}>
+                  {(() => {
+                    const infoTab = tool.infoTabs.find(t => `info_${t.label.toLowerCase()}` === tab.id);
+                    return infoTab?.content?.trim()
+                      ? <MarkdownContent source={infoTab.content} />
+                      : <p className="text-[#555555] text-[13px]">No content available.</p>;
+                  })()}
+                </div>
+              )
+            ))}
+
+            {/* Extension-injected tab content */}
+            {extTabItems.map(tab => (
+              currentTab === tab.id && tab.slot && (
+                <DetailTabSlotContent key={tab.id} slot={tab.slot} tool={tool} />
+              )
+            ))}
+
+            {/* Empty state when no tabs */}
+            {allTabs.length === 0 && (
+              <p className="text-[#555555] text-[13px]">No details available.</p>
             )}
           </div>
-        </div>
-
-        {/* Tab bar — dynamic from info/ folder */}
-        {allTabs.length > 0 && (
-          <div className="flex items-center gap-6 border-b border-[#1e1e1e] mb-6 ml-[72px] pr-8">
-            {allTabs.map((tab) => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className={cn("pb-3 text-[13px] font-medium transition-colors duration-150 relative",
-                  currentTab === tab.id ? "text-[#3b8bdb]" : "text-[#888888] hover:text-[#e8e8e8]")}>
-                {tab.label}
-                {currentTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3b8bdb] rounded-full" />}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Tab content */}
-        <div className="ml-[72px] pr-8">
-
-          {/* Info tabs — from info/ folder markdown */}
-          {infoTabItems.map(tab => (
-            currentTab === tab.id && (
-              <div key={tab.id}>
-                {(() => {
-                  const infoTab = tool.infoTabs.find(t => `info_${t.label.toLowerCase()}` === tab.id);
-                  return infoTab?.content?.trim()
-                    ? <MarkdownContent source={infoTab.content} />
-                    : <p className="text-[#555555] text-[13px]">No content available.</p>;
-                })()}
-              </div>
-            )
-          ))}
-
-          {/* Extension-injected tab content */}
-          {extTabItems.map(tab => (
-            currentTab === tab.id && tab.slot && (
-              <DetailTabSlotContent key={tab.id} slot={tab.slot} tool={tool} />
-            )
-          ))}
-
-          {/* Empty state when no tabs */}
-          {allTabs.length === 0 && (
-            <p className="text-[#555555] text-[13px]">No details available.</p>
-          )}
-        </div>
-      </main>
+        </main>
+      </div>{/* end scrollable content */}
 
       {showInstallModal && (
         <InstallModal toolName={tool.name} installing={installing}

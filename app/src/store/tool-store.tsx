@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { loadTools, refreshTools } from "../lib/tools";
 import type { Tool } from "../lib/types";
 
@@ -59,6 +59,22 @@ export function ToolStoreProvider({ children }: { children: ReactNode }) {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+  }, []);
+
+  // On mount — load from the Rust registry (which is always populated from
+  // disk cache at startup). This means tools show immediately without any
+  // GitHub call, in both dev and prod.
+  useEffect(() => {
+    loadTools().then(cached => {
+      if (cached.length > 0) {
+        setTools(cached);
+        setToolStates(() => {
+          const next: Record<string, ToolState> = {};
+          cached.forEach(t => { next[t.id] = { installed: t.installed, enabled: t.enabled }; });
+          return next;
+        });
+      }
+    });
   }, []);
 
   const isInstalled = (id: string) => toolStates[id]?.installed ?? false;

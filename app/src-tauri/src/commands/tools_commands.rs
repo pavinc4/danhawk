@@ -473,6 +473,18 @@ fn kill_orphans() {
 pub fn restore_on_startup() {
     kill_orphans();
 
+    // Populate the in-memory registry from disk cache immediately —
+    // this means get_tools() works right away without hitting GitHub.
+    let cached = load_tools_cache();
+    if !cached.is_empty() {
+        let mut reg = REGISTRY.lock().unwrap();
+        for tool in cached {
+            reg.tools.insert(tool.id.clone(), tool);
+        }
+        logger::info("[startup] loaded tools from cache into registry");
+        drop(reg);
+    }
+
     let state = load_state();
 
     for (id, s) in &state.tools {
@@ -503,8 +515,31 @@ pub fn restore_on_startup() {
 #[tauri::command]
 pub fn get_tools() -> Vec<ToolInfo> {
     let reg = REGISTRY.lock().unwrap();
+
+    // If registry is empty (e.g. first call before restore_on_startup finishes),
+    // fall back to disk cache so Explore never shows blank.
+    let tools_map = if reg.tools.is_empty() {
+        drop(reg);
+        let cached = load_tools_cache();
+        if !cached.is_empty() {
+            let mut reg2 = REGISTRY.lock().unwrap();
+            for tool in cached {
+                reg2.tools.insert(tool.id.clone(), tool);
+            }
+            let snap: HashMap<String, ToolInfo> = reg2.tools.clone();
+            drop(reg2);
+            snap
+        } else {
+            HashMap::new()
+        }
+    } else {
+        let snap = reg.tools.clone();
+        drop(reg);
+        snap
+    };
+
     let state = load_state();
-    let mut r: Vec<ToolInfo> = reg.tools.values().cloned().map(|mut t| {
+    let mut r: Vec<ToolInfo> = tools_map.into_values().map(|mut t| {
         if let Some(s) = state.tools.get(&t.id) {
             t.installed = s.installed;
             t.enabled   = s.enabled;

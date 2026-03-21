@@ -14,11 +14,13 @@
     "windows": [
       {
         "title": "Danhawk",
-        "width": 1100,
-        "height": 750,
+        "width": 900,
+        "height": 600,
         "minWidth": 900,
         "minHeight": 600,
-        "resizable": true,
+        "maxWidth": 900,
+        "maxHeight": 600,
+        "resizable": false,
         "decorations": false,
         "center": true,
         "devtools": true

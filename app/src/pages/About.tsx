@@ -1,6 +1,6 @@
 export default function AboutPage() {
   return (
-    <div className="flex flex-col h-full bg-[#0d0d0d]" style={{ minHeight: "100%" }}>
+    <div className="flex flex-col bg-[#0d0d0d]" style={{ height: "100%", overflow: "hidden", minHeight: 0 }}>
 
       {/* Page header */}
       <div
@@ -10,7 +10,7 @@ export default function AboutPage() {
         <h1 className="text-[20px] font-semibold text-[#e8e8e8]">About</h1>
       </div>
 
-      <main className="flex-1 overflow-y-auto px-8 py-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <main className="flex-1 overflow-y-auto px-5 py-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
         <div className="flex flex-col items-center justify-center text-center py-10">
           <h2 className="text-[22px] font-semibold text-[#e8e8e8] mb-1">Danhawk</h2>
           <p className="text-[13px] mb-0.5" style={{ color: "#4d4d4d" }}>v1.0.0</p>

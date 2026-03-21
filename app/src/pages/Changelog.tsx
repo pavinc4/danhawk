@@ -82,7 +82,7 @@ function sectionColor(title: string): string {
 // ── Section accordion ─────────────────────────────────────────────────────────
 
 function SectionAccordion({ section }: { section: ChangeSection }) {
-    const [open, setOpen] = useState(true);
+    const [open, setOpen] = useState(false);
     const color = sectionColor(section.title);
 
     return (

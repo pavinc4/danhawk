@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import * as Icons from "lucide-react";
+import { ArrowUpDown } from "lucide-react";
 import { useToolStore } from "../store/tool-store";
 
 type LucideIcon = React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
@@ -44,22 +45,120 @@ function ToolToggle({ enabled, toggling, onToggle }: {
 
 // ── Quick access card ─────────────────────────────────────────────────────────
 
-function QuickCard({ tool, index }: { tool: any; index: number }) {
+// ── Context menu ─────────────────────────────────────────────────────────────
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  toolId: string;
+  toolSlug: string;
+}
+
+function QuickContextMenu({ menu, isPinned, onPin, onViewDetails, onClose }: {
+  menu: ContextMenuState;
+  isPinned: boolean;
+  onPin: () => void;
+  onViewDetails: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      {/* Invisible overlay to catch outside clicks */}
+      <div
+        style={{ position: "fixed", inset: 0, zIndex: 998 }}
+        onClick={onClose}
+        onContextMenu={e => { e.preventDefault(); onClose(); }}
+      />
+      {/* Menu */}
+      <div
+        style={{
+          position: "fixed",
+          left: menu.x,
+          top: menu.y,
+          zIndex: 999,
+          minWidth: 160,
+          background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)",
+          border: "1px solid var(--border-medium)",
+          borderRadius: 10,
+          overflow: "hidden",
+          boxShadow: "var(--shadow-lg)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          padding: "4px",
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {[
+          {
+            icon: isPinned ? <Icons.PinOff size={13} /> : <Icons.Pin size={13} />,
+            label: isPinned ? "Unpin" : "Pin to top",
+            onClick: () => { onPin(); onClose(); },
+          },
+          {
+            icon: <Icons.ExternalLink size={13} />,
+            label: "View Details",
+            onClick: () => { onViewDetails(); onClose(); },
+          },
+        ].map((item, i) => (
+          <button
+            key={i}
+            onClick={item.onClick}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", gap: 9,
+              padding: "7px 10px", background: "none", border: "none",
+              cursor: "pointer", borderRadius: 7,
+              color: "var(--text-secondary)", fontSize: 12.5,
+              transition: "background 0.1s",
+              textAlign: "left",
+            }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "none"}
+          >
+            <span style={{ color: "var(--text-muted)", display: "flex", alignItems: "center" }}>
+              {item.icon}
+            </span>
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ── Quick access card ─────────────────────────────────────────────────────────
+
+function QuickCard({ tool, isPinned, onContextMenu }: {
+  tool: any;
+  isPinned: boolean;
+  onContextMenu: (e: React.MouseEvent) => void;
+}) {
   const IconComponent = ((Icons as unknown) as Record<string, LucideIcon>)[tool.icon] ?? Icons.Box;
   return (
     <Link
       to={`/tool/${tool.slug}`}
       style={{
+        position: "relative",
         display: "flex", flexDirection: "column", alignItems: "center",
         gap: 8, padding: "14px 8px 10px",
         borderRadius: 12, textDecoration: "none",
         transition: "all 0.15s ease",
-        animation: `fadeUp 0.2s ease ${index * 40}ms both`,
       }}
       onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"}
       onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "none"}
+      onContextMenu={e => { e.preventDefault(); onContextMenu(e); }}
     >
-      {/* Icon — custom images render bare, lucide icons get coloured bg box */}
+      {/* Pin indicator */}
+      {isPinned && (
+        <span style={{
+          position: "absolute", top: 6, right: 6,
+          color: "var(--text-muted)",
+          display: "flex", alignItems: "center",
+        }}>
+          <Icons.Pin size={9} />
+        </span>
+      )}
+
+      {/* Icon */}
       {tool.iconFile ? (
         <img src={tool.iconFile} alt={tool.name} style={{ width: 36, height: 36, objectFit: "contain" }} />
       ) : (
@@ -132,34 +231,69 @@ function ToolRow({ tool }: { tool: any }) {
 
 export default function HomePage({ search = "" }: { search?: string }) {
   const { tools, getInstalledTools, isEnabled } = useToolStore();
-  const [filter, setFilter] = useState<"all" | "on" | "off">("all");
+  const navigate = useNavigate();
+  const [sortOrder, setSortOrder] = useState<"az" | "za" | "active" | "inactive">("az");
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const sortLabels = { az: "A → Z", za: "Z → A", active: "Active first", inactive: "Inactive first" };
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("danhawk:pinned");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
-  const activeTools = tools.filter(t => isEnabled(t.id));
+  const togglePin = (id: string) => {
+    setPinnedIds(prev => {
+      const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
+      try { localStorage.setItem("danhawk:pinned", JSON.stringify(next)); } catch { }
+      return next;
+    });
+  };
+
+  // Active tools — pinned ones always first, then rest
+  const activeTools = useMemo(() => {
+    const active = tools.filter(t => isEnabled(t.id));
+    const pinned = active.filter(t => pinnedIds.includes(t.id));
+    const rest = active.filter(t => !pinnedIds.includes(t.id));
+    return [...pinned, ...rest];
+  }, [tools, isEnabled, pinnedIds]);
   const installedTools = getInstalledTools();
 
   const filteredInstalled = useMemo(() => {
     let list = installedTools;
-    if (filter === "on") list = list.filter(t => isEnabled(t.id));
-    if (filter === "off") list = list.filter(t => !isEnabled(t.id));
     if (search.trim()) list = list.filter(t => t.name.toLowerCase().includes(search.toLowerCase()));
+    if (sortOrder === "az") list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortOrder === "za") list = [...list].sort((a, b) => b.name.localeCompare(a.name));
+    else if (sortOrder === "active") list = [...list].sort((a, b) => {
+      const ai = isEnabled(a.id) ? 0 : 1;
+      const bi = isEnabled(b.id) ? 0 : 1;
+      return ai !== bi ? ai - bi : a.name.localeCompare(b.name);
+    });
+    else if (sortOrder === "inactive") list = [...list].sort((a, b) => {
+      const ai = isEnabled(a.id) ? 1 : 0;
+      const bi = isEnabled(b.id) ? 1 : 0;
+      return ai !== bi ? ai - bi : a.name.localeCompare(b.name);
+    });
     return list;
-  }, [installedTools, filter, search, isEnabled]);
+  }, [installedTools, sortOrder, search, isEnabled]);
 
   return (
     // Page root: fills the container exactly, nothing overflows out
     <div style={{
       display: "flex",
       flexDirection: "column",
-      height: "100%",      // fill parent exactly
-      overflow: "hidden",  // page itself never scrolls
+      height: "100%",
+      overflow: "hidden",
       minHeight: 0,
-    }}>
+    }} onClick={() => setShowSortMenu(false)}>
 
       {/* Page header — fixed, never scrolls */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "18px 24px 14px",
-        flexShrink: 0,  // never shrinks
+        flexShrink: 0,
+        borderBottom: "1px solid var(--border-subtle)",
       }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.3px" }}>
           Home
@@ -225,7 +359,7 @@ export default function HomePage({ search = "" }: { search?: string }) {
           <p style={{
             fontSize: 11, fontWeight: 500, color: "var(--text-muted)",
             textTransform: "uppercase", letterSpacing: "0.08em",
-            margin: "0 24px 10px", flexShrink: 0,
+            margin: "14px 24px 10px", flexShrink: 0,
           }}>
             Quick access
           </p>
@@ -246,7 +380,19 @@ export default function HomePage({ search = "" }: { search?: string }) {
                 padding: "8px",
               }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(88px, 1fr))", gap: 2 }}>
-                  {activeTools.map((tool, i) => <QuickCard key={tool.id} tool={tool} index={i} />)}
+                  {activeTools.map(tool => (
+                    <QuickCard
+                      key={tool.id}
+                      tool={tool}
+                      isPinned={pinnedIds.includes(tool.id)}
+                      onContextMenu={e => {
+                        const menuW = 165, menuH = 80;
+                        const x = Math.min(e.clientX, window.innerWidth - menuW - 8);
+                        const y = Math.min(e.clientY, window.innerHeight - menuH - 8);
+                        setContextMenu({ x, y, toolId: tool.id, toolSlug: tool.slug });
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -260,26 +406,58 @@ export default function HomePage({ search = "" }: { search?: string }) {
           overflow: "hidden",
         }}>
           {/* Header — fixed */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 10px", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 10px", flexShrink: 0 }}>
             <p style={{ fontSize: 11, fontWeight: 500, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
               Tools
             </p>
-            <div style={{ display: "flex", gap: 2 }}>
-              {(["all", "on", "off"] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  style={{
-                    padding: "3px 10px", borderRadius: 6, border: "none", cursor: "pointer",
-                    fontSize: 11, fontWeight: filter === f ? 500 : 400,
-                    background: filter === f ? "var(--accent-dim)" : "none",
-                    color: filter === f ? "var(--accent)" : "var(--text-muted)",
-                    transition: "all 0.1s",
-                  }}
-                >
-                  {f === "all" ? "All" : f === "on" ? "On" : "Off"}
-                </button>
-              ))}
+
+            {/* Sort dropdown — same style as Explore */}
+            <div style={{ position: "relative", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+              <button
+                onClick={() => setShowSortMenu(v => !v)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  padding: "5px 10px", borderRadius: 8, cursor: "pointer",
+                  border: `1px solid ${showSortMenu ? "var(--accent)" : "var(--border-subtle)"}`,
+                  background: showSortMenu ? "var(--accent-dim)" : "none",
+                  color: showSortMenu ? "var(--accent)" : "var(--text-muted)",
+                  fontSize: 11.5, transition: "all 0.12s",
+                }}
+              >
+                <ArrowUpDown size={11} />
+                {sortLabels[sortOrder]}
+              </button>
+
+              {showSortMenu && (
+                <div style={{
+                  position: "absolute", right: 0, top: "calc(100% + 4px)",
+                  background: "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)",
+                  border: "1px solid var(--border-medium)",
+                  borderRadius: 10, overflow: "hidden",
+                  zIndex: 50, width: 150,
+                  boxShadow: "var(--shadow-lg)",
+                  backdropFilter: "blur(20px)",
+                }}>
+                  {(["az", "za", "active", "inactive"] as const).map(opt => (
+                    <button
+                      key={opt}
+                      onClick={() => { setSortOrder(opt); setShowSortMenu(false); }}
+                      style={{
+                        width: "100%", textAlign: "left",
+                        padding: "8px 12px",
+                        background: sortOrder === opt ? "var(--accent-dim)" : "none",
+                        color: sortOrder === opt ? "var(--accent)" : "var(--text-secondary)",
+                        fontSize: 12, border: "none", cursor: "pointer",
+                        transition: "background 0.1s",
+                      }}
+                      onMouseEnter={e => { if (sortOrder !== opt) (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"; }}
+                      onMouseLeave={e => { if (sortOrder !== opt) (e.currentTarget as HTMLElement).style.background = "none"; }}
+                    >
+                      {sortLabels[opt]}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -315,6 +493,17 @@ export default function HomePage({ search = "" }: { search?: string }) {
           </div>
         </div>
       </div>
+
+      {/* Context menu */}
+      {contextMenu && (
+        <QuickContextMenu
+          menu={contextMenu}
+          isPinned={pinnedIds.includes(contextMenu.toolId)}
+          onPin={() => togglePin(contextMenu.toolId)}
+          onViewDetails={() => navigate(`/tool/${contextMenu.toolSlug}`)}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }

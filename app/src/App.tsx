@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Sidebar } from "./components/danhawk/header";
 import { ToolStoreProvider } from "./store/tool-store";
 import Home from "./pages/Home";
@@ -8,7 +8,7 @@ import ToolDetail from "./pages/ToolDetail";
 import CreateTool from "./pages/Create";
 import Settings from "./pages/Settings";
 import About from "./pages/About";
-import Changelog from "./pages/Changelog";
+import Changelog from "./pages/changelog";
 
 function AppShell() {
   const { pathname } = useLocation();

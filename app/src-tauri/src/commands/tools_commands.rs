@@ -57,7 +57,7 @@ fn save_tools_cache(tools: &[ToolInfo]) {
     }
 }
 
-fn load_tools_cache() -> Vec<ToolInfo> {
+pub fn load_tools_cache() -> Vec<ToolInfo> {
     let raw = match fs::read_to_string(cache_file()) {
         Ok(s) => s,
         Err(_) => return vec![],
@@ -276,9 +276,8 @@ fn save_state(reg: &Registry) {
 
 // ── In-memory registry ────────────────────────────────────────────────────────
 
-struct Registry { tools: HashMap<String, ToolInfo> }
-
-static REGISTRY: Lazy<Mutex<Registry>> =
+pub struct Registry { pub tools: HashMap<String, ToolInfo> }
+pub static REGISTRY: Lazy<Mutex<Registry>> =
     Lazy::new(|| Mutex::new(Registry { tools: HashMap::new() }));
 
 // ── Connectivity check ────────────────────────────────────────────────────────
@@ -444,7 +443,7 @@ fn fetch_from_github() -> Vec<ToolInfo> {
 
 // ── Startup ───────────────────────────────────────────────────────────────────
 
-fn kill_orphans() {
+pub fn kill_orphans() {
     let entries = match fs::read_dir(paths::pids_dir()) { Ok(e) => e, Err(_) => return };
     let mut killed = 0u32;
     for entry in entries.flatten() {
@@ -470,21 +469,7 @@ fn kill_orphans() {
     }
 }
 
-pub fn restore_on_startup() {
-    kill_orphans();
-
-    // Populate the in-memory registry from disk cache immediately —
-    // this means get_tools() works right away without hitting GitHub.
-    let cached = load_tools_cache();
-    if !cached.is_empty() {
-        let mut reg = REGISTRY.lock().unwrap();
-        for tool in cached {
-            reg.tools.insert(tool.id.clone(), tool);
-        }
-        logger::info("[startup] loaded tools from cache into registry");
-        drop(reg);
-    }
-
+pub fn restore_tools_only() {
     let state = load_state();
 
     for (id, s) in &state.tools {
@@ -508,6 +493,23 @@ pub fn restore_on_startup() {
     }
 
     logger::info("[startup] done — window ready");
+}
+
+pub fn restore_on_startup() {
+    kill_orphans();
+
+    // Populate the in-memory registry from disk cache immediately
+    let cached = load_tools_cache();
+    if !cached.is_empty() {
+        let mut reg = REGISTRY.lock().unwrap();
+        for tool in cached {
+            reg.tools.insert(tool.id.clone(), tool);
+        }
+        logger::info("[startup] loaded tools from cache into registry");
+        drop(reg);
+    }
+
+    restore_tools_only();
 }
 
 // ── Tauri commands ────────────────────────────────────────────────────────────
@@ -591,7 +593,7 @@ pub async fn refresh_tools() -> Vec<ToolInfo> {
 }
 
 #[tauri::command]
-pub fn install_tool(tool_id: String) -> Result<bool, String> {
+pub fn install_tool(app: tauri::AppHandle, tool_id: String) -> Result<bool, String> {
     let tool_dir = paths::installed_tool_dir(&tool_id);
 
     logger::info(&format!("[install] downloading '{}' from GitHub", tool_id));
@@ -611,6 +613,7 @@ pub fn install_tool(tool_id: String) -> Result<bool, String> {
             t.installed = true;
             logger::info(&format!("[tools] installed: {}", tool_id));
             save_state(&reg);
+            let _ = tauri::Emitter::emit(&app, "tools-changed", ());
             Ok(true)
         }
         None => Err(DanhawkError::NotFound(tool_id).into()),
@@ -618,7 +621,7 @@ pub fn install_tool(tool_id: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
-pub fn remove_tool(tool_id: String) -> Result<bool, String> {
+pub fn remove_tool(app: tauri::AppHandle, tool_id: String) -> Result<bool, String> {
     let tool_dir = paths::installed_tool_dir(&tool_id);
 
     // Run uninstall action first (tool cleans up registry entries etc.)
@@ -642,12 +645,13 @@ pub fn remove_tool(tool_id: String) -> Result<bool, String> {
         t.enabled   = false;
         logger::info(&format!("[tools] uninstalled: {}", tool_id));
         save_state(&reg);
+        let _ = tauri::Emitter::emit(&app, "tools-changed", ());
     }
     Ok(true)
 }
 
 #[tauri::command]
-pub fn toggle_tool(tool_id: String, enabled: bool) -> Result<bool, String> {
+pub fn toggle_tool(app: tauri::AppHandle, tool_id: String, enabled: bool) -> Result<bool, String> {
     let tool_dir = paths::installed_tool_dir(&tool_id);
 
     let result = if enabled {
@@ -663,6 +667,7 @@ pub fn toggle_tool(tool_id: String, enabled: bool) -> Result<bool, String> {
             let mut reg = REGISTRY.lock().unwrap();
             if let Some(t) = reg.tools.get_mut(&tool_id) { t.enabled = enabled; }
             save_state(&reg);
+            let _ = tauri::Emitter::emit(&app, "tools-changed", ());
             Ok(true)
         }
         Err(e) => {
@@ -673,6 +678,28 @@ pub fn toggle_tool(tool_id: String, enabled: bool) -> Result<bool, String> {
 }
 
 // ── Shutdown ──────────────────────────────────────────────────────────────────
+
+
+// ── open_tool ─────────────────────────────────────────────────────────────────
+// Called from the launcher when user clicks a tool.
+// Runs run.ps1 with the "open" action — each tool decides what "open" means
+// (e.g. bring window to front, launch GUI, show notification).
+// Does NOT change enabled/disabled state.
+#[tauri::command]
+pub fn open_tool(tool_id: String) -> Result<bool, String> {
+    let tool_dir = paths::installed_tool_dir(&tool_id);
+    if !tool_dir.exists() {
+        return Err(format!("Tool '{}' is not installed", tool_id));
+    }
+    logger::info(&format!("[tools] opening: {}", tool_id));
+    match engines::open(&tool_id, &tool_dir) {
+        Ok(()) => Ok(true),
+        Err(e) => {
+            logger::error(&format!("[tools] open failed {}: {}", tool_id, e));
+            Err(e.into())
+        }
+    }
+}
 
 pub fn shutdown() {
     // Run disable hook for all enabled tools (registry cleanup etc.)

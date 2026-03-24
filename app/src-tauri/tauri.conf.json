@@ -13,6 +13,7 @@
     "withGlobalTauri": false,
     "windows": [
       {
+        "label": "main",
         "title": "Danhawk",
         "width": 900,
         "height": 600,
@@ -23,6 +24,26 @@
         "resizable": false,
         "decorations": false,
         "center": true,
+        "devtools": true
+      },
+      {
+        "label": "launcher",
+        "title": "Danhawk Launcher",
+        "url": "/launcher",
+        "width": 560,
+        "height": 420,
+        "minWidth": 560,
+        "minHeight": 420,
+        "maxWidth": 560,
+        "maxHeight": 420,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "visible": false,
+        "alwaysOnTop": true,
+        "center": true,
+        "skipTaskbar": true,
+        "shadow": true,
         "devtools": true
       }
     ],

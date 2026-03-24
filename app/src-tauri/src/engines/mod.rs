@@ -1,7 +1,7 @@
 // engines/mod.rs
 // Simplified engine layer — all tools use a single run.ps1 entry point.
 // Platform calls: powershell run.ps1 <action>
-// Actions: enable | disable | install | uninstall
+// Actions: enable | disable | install | uninstall | open
 //
 // Tools own all runtime logic internally via run.ps1.
 // Platform stays completely dumb — it only knows how to call one script.
@@ -91,7 +91,7 @@ fn kill_pid(pid: u32) {
 
 // ── Run run.ps1 with an action ────────────────────────────────────────────────
 // For "enable" — spawns and tracks the process (tool may stay alive).
-// For "disable" / "install" / "uninstall" — waits for completion.
+// For "disable" / "install" / "uninstall" / "open" — waits for completion.
 
 fn run_script(tool_dir: &Path, action: &str, track: bool) -> Result<(), DanhawkError> {
     let script = tool_dir.join("run.ps1");
@@ -117,7 +117,6 @@ fn run_script(tool_dir: &Path, action: &str, track: bool) -> Result<(), DanhawkE
     cmd.creation_flags(CREATE_NO_WINDOW);
 
     if track {
-        // Spawn and track — for "enable" where tool runs as a background process
         let child = cmd.spawn().map_err(|e| {
             DanhawkError::Engine(format!("spawn failed for run.ps1 enable: {}", e))
         })?;
@@ -139,7 +138,6 @@ fn run_script(tool_dir: &Path, action: &str, track: bool) -> Result<(), DanhawkE
         RUNNING.lock().unwrap().insert(tool_id.clone(), child);
         logger::info(&format!("[engine] started '{}' PID {}", tool_id, pid));
     } else {
-        // Wait for completion — for disable/install/uninstall
         match cmd.output() {
             Ok(out) => {
                 if !out.status.success() {
@@ -161,12 +159,11 @@ fn run_script(tool_dir: &Path, action: &str, track: bool) -> Result<(), DanhawkE
 // ── Public API ────────────────────────────────────────────────────────────────
 
 pub fn enable(tool_id: &str, tool_dir: &Path) -> Result<(), DanhawkError> {
-    let _ = disable(tool_id); // stop any existing instance first
+    let _ = disable(tool_id);
     run_script(tool_dir, "enable", true)
 }
 
 pub fn disable(tool_id: &str) -> Result<(), DanhawkError> {
-    // Kill any tracked process first
     let pid_path = paths::pid_file(tool_id);
     if pid_path.exists() {
         if let Ok(s) = fs::read_to_string(&pid_path) {
@@ -186,7 +183,6 @@ pub fn disable(tool_id: &str) -> Result<(), DanhawkError> {
         }
     }
 
-    // Also run run.ps1 disable — tool may need to clean up registry entries etc.
     let tool_dir = paths::installed_tool_dir(tool_id);
     if tool_dir.exists() {
         let _ = run_script(&tool_dir, "disable", false);
@@ -203,6 +199,12 @@ pub fn install(tool_id: &str, tool_dir: &Path) -> Result<(), DanhawkError> {
 pub fn uninstall(tool_id: &str, tool_dir: &Path) -> Result<(), DanhawkError> {
     let _ = disable(tool_id);
     run_script(tool_dir, "uninstall", false)
+}
+
+/// Opens the tool's GUI window or triggers its "open" behaviour.
+/// Does NOT change enabled/disabled state — tool decides what "open" means.
+pub fn open(_tool_id: &str, tool_dir: &Path) -> Result<(), DanhawkError> {
+    run_script(tool_dir, "open", false)
 }
 
 pub fn stop_all() {

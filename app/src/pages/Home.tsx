@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import * as Icons from "lucide-react";
 import { ArrowUpDown } from "lucide-react";
 import { useToolStore } from "../store/tool-store";
+import { QuickGrid, ToolIcon as SharedIcon } from "../components/QuickAccess";
 
 type LucideIcon = React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
 
@@ -210,7 +211,7 @@ function ToolRow({ tool }: { tool: any }) {
         background: tool.iconFile ? "transparent" : tool.iconBg,
       }}>
         {tool.iconFile
-          ? <img src={tool.iconFile} alt={tool.name} style={{ width: 20, height: 20, objectFit: "contain" }} />
+          ? <SharedIcon tool={tool} size={24} />
           : <IconComponent style={{ width: 13, height: 13, color: tool.iconColor }} />}
       </div>
       <span style={{
@@ -364,7 +365,6 @@ export default function HomePage({ search = "" }: { search?: string }) {
             Quick access
           </p>
 
-          {/* Scrollable area */}
           <div style={{ flex: 1, overflowY: "auto", padding: "0 24px 24px", minHeight: 0 }}>
             {activeTools.length === 0 ? (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 0", gap: 10 }}>
@@ -373,28 +373,17 @@ export default function HomePage({ search = "" }: { search?: string }) {
                 <Link to="/explore" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none" }}>Browse tools →</Link>
               </div>
             ) : (
-              <div style={{
-                borderRadius: 16,
-                background: "linear-gradient(135deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.01) 100%)",
-                border: "1px solid var(--border-subtle)",
-                padding: "8px",
-              }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(88px, 1fr))", gap: 2 }}>
-                  {activeTools.map(tool => (
-                    <QuickCard
-                      key={tool.id}
-                      tool={tool}
-                      isPinned={pinnedIds.includes(tool.id)}
-                      onContextMenu={e => {
+                <QuickGrid
+                    tools={activeTools}
+                    pinnedIds={pinnedIds}
+                    variant="link"
+                    onToolContextMenu={(e, tool) => {
                         const menuW = 165, menuH = 80;
                         const x = Math.min(e.clientX, window.innerWidth - menuW - 8);
                         const y = Math.min(e.clientY, window.innerHeight - menuH - 8);
                         setContextMenu({ x, y, toolId: tool.id, toolSlug: tool.slug });
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
+                    }}
+                />
             )}
           </div>
         </div>

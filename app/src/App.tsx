@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Sidebar } from "./components/danhawk/header";
 import { ToolStoreProvider } from "./store/tool-store";
 import Home from "./pages/Home";
@@ -8,12 +8,24 @@ import ToolDetail from "./pages/ToolDetail";
 import CreateTool from "./pages/Create";
 import Settings from "./pages/Settings";
 import About from "./pages/About";
-import Changelog from "./pages/changelog";
+import Changelog from "./pages/Changelog";
 import Feedback from "./pages/Feedback";
+import Launcher from "./pages/launcher";
+import LauncherPage from "./pages/launcher"; // Just to be sure we have the component
 
 function AppShell() {
   const { pathname } = useLocation();
-  const isCompiler = pathname === "/create";
+  const [windowLabel, setWindowLabel] = useState<string>("");
+
+  useEffect(() => {
+    // Get current window label to decide layout
+    import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+      setWindowLabel(getCurrentWindow().label);
+    });
+  }, []);
+
+  const isCompiler = pathname.includes("create") || windowLabel === "compiler";
+  const isLauncher = pathname.includes("launcher") || windowLabel === "launcher" || window.location.href.includes("launcher");
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const showSearch = pathname === "/" || pathname === "/explore";
@@ -21,6 +33,18 @@ function AppShell() {
   useEffect(() => {
     setSearch("");
   }, [pathname]);
+
+  // Launcher window — completely standalone, no shell chrome
+  if (isLauncher) {
+    return (
+      <div style={{ height: "100vh", overflow: "hidden", background: "transparent" }}>
+        <Routes>
+          <Route path="/launcher" element={<Launcher />} />
+          <Route path="*" element={<Launcher />} />
+        </Routes>
+      </div>
+    );
+  }
 
   if (isCompiler) {
     return (
@@ -31,7 +55,6 @@ function AppShell() {
   }
 
   return (
-    // Root: fixed height, nothing overflows
     <div style={{
       display: "flex",
       flexDirection: "column",
@@ -39,28 +62,25 @@ function AppShell() {
       overflow: "hidden",
       background: "var(--bg-base)",
     }}>
-      {/* Title bar — always fixed at top, never scrolls */}
       <TitleBar
         search={search} setSearch={setSearch}
         searchFocused={searchFocused} setSearchFocused={setSearchFocused}
         showSearch={showSearch}
       />
 
-      {/* Body — sidebar + page, overflow hidden so pages manage their own scroll */}
       <div style={{
         display: "flex",
         flex: 1,
-        overflow: "hidden", // CRITICAL — prevents body from scrolling
-        minHeight: 0,       // CRITICAL — allows flex children to shrink below content height
+        overflow: "hidden",
+        minHeight: 0,
       }}>
         <Sidebar />
 
-        {/* Page container — overflow hidden, each page handles its own scroll internally */}
         <div
           className="bg-obsidian"
           style={{
             flex: 1,
-            overflow: "hidden", // pages own their scroll
+            overflow: "hidden",
             minWidth: 0,
             minHeight: 0,
             display: "flex",

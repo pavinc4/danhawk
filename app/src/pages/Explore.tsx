@@ -59,7 +59,7 @@ export default function ExplorePage({ search = "" }: { search?: string }) {
   const sortLabels: Record<SortOrder, string> = { az: "A → Z", za: "Z → A", installed: "Installed first" };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden"
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden animate-entrance"
       onClick={() => setShowSortMenu(false)}>
 
       {/* Page header */}
@@ -105,30 +105,14 @@ export default function ExplorePage({ search = "" }: { search?: string }) {
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
+              className={`pill-skeuo ${resolvedCategory === cat ? "pill-skeuo-active" : ""}`}
               style={{
                 padding: "4px 12px",
                 borderRadius: 999,
-                border: `1px solid ${resolvedCategory === cat ? "var(--accent)" : "var(--border-subtle)"}`,
-                background: resolvedCategory === cat ? "var(--accent-dim)" : "none",
-                color: resolvedCategory === cat ? "var(--accent)" : "var(--text-muted)",
+                color: resolvedCategory === cat ? "white" : "var(--text-muted)",
                 fontSize: 11.5,
-                fontWeight: resolvedCategory === cat ? 500 : 400,
+                fontWeight: resolvedCategory === cat ? 600 : 400,
                 cursor: "pointer",
-                transition: "all 0.12s",
-              }}
-              onMouseEnter={e => { 
-                if (resolvedCategory !== cat) {
-                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.15)";
-                  (e.currentTarget as HTMLElement).style.background = "#1a1a1a";
-                  (e.currentTarget as HTMLElement).style.color = "#ffffff";
-                }
-              }}
-              onMouseLeave={e => { 
-                if (resolvedCategory !== cat) {
-                  (e.currentTarget as HTMLElement).style.borderColor = "var(--border-subtle)";
-                  (e.currentTarget as HTMLElement).style.background = "none";
-                  (e.currentTarget as HTMLElement).style.color = "var(--text-muted)";
-                }
               }}
             >
               {cat}

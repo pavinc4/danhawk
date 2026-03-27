@@ -147,35 +147,23 @@ export function ToolCard({ tool }: ToolCardProps) {
       <Link
         to={`/tool/${tool.slug}`}
         onClick={e => { e.preventDefault(); openTool(tool.slug); }}
-        className="group relative flex flex-col rounded-[20px] overflow-hidden transition-all duration-300 ease-out no-underline pointer-events-auto touch-auto hover:scale-[1.03] hover:z-50 hover:shadow-[0_20px_40px_rgba(0,0,0,0.6)]"
+        className="group relative flex flex-col rounded-[20px] overflow-hidden card-skeuo card-skeuo-hover no-underline pointer-events-auto touch-auto z-10 noise"
         style={{
           height: 220,
-          backgroundColor: "rgba(13, 13, 13, 0.9)", // Even darker glassy black
-          backdropFilter: "blur(25px)",
-          WebkitBackdropFilter: "blur(25px)",
-          border: "1px solid rgba(255,255,255,0.06)",
           display: "flex",
           flexDirection: "column",
           padding: "16px"
-        }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(22, 22, 22, 0.95)";
-          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)";
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(13, 13, 13, 0.9)";
-          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)";
         }}
       >
         {/* Top Icon */}
         <div className="flex items-start justify-between mb-3 flex-shrink-0">
           <div
+            className="icon-skeuo"
             style={{
               width: "40px", height: "40px",
               borderRadius: "10px",
               backgroundColor: tool.iconBg || "#007AFF",
               display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 4px 10px rgba(0,0,0,0.3)"
             }}
           >
             {tool.iconFile ? (
@@ -208,11 +196,7 @@ export function ToolCard({ tool }: ToolCardProps) {
             <button
               disabled={installing}
               onClick={e => { e.preventDefault(); e.stopPropagation(); if (!installing) setShowInstallModal(true); }}
-              className="w-full py-2.5 rounded-[12px] text-[12px] font-bold text-white transition-all duration-200 active:scale-[0.98] disabled:opacity-50 shadow-lg"
-              style={{
-                backgroundColor: "#1A56DB", // Deep theme blue
-                border: "none"
-              }}
+              className="w-full py-2.5 rounded-[12px] text-[12px] font-bold text-white transition-all duration-200 active:scale-[0.98] disabled:opacity-50 btn-skeuo-primary"
             >
               {installing ? "INSTALLING..." : "Install"}
             </button>
@@ -226,7 +210,7 @@ export function ToolCard({ tool }: ToolCardProps) {
               </div>
               <button
                 onClick={e => { e.preventDefault(); e.stopPropagation(); openTool(tool.slug); }}
-                className="px-5 py-1.5 rounded-[10px] text-[12px] font-bold text-[#e0e0e0] bg-[#2a2a2a] border border-[#3a3a3a] hover:bg-[#353535] active:scale-[0.95] transition-all"
+                className="px-5 py-1.5 rounded-[10px] text-[12px] font-bold text-[#e0e0e0] btn-skeuo"
               >
                 Open
               </button>

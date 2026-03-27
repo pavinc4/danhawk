@@ -18,28 +18,30 @@ function ToolToggle({ enabled, toggling, onToggle }: {
     <button
       onClick={onToggle}
       disabled={toggling}
+      className={`toggle-skeuo ${enabled ? "toggle-skeuo-on" : ""}`}
       style={{
         position: "relative",
-        width: 32, height: 18,
+        width: 34, height: 18,
         borderRadius: 999,
         border: "none",
         cursor: toggling ? "not-allowed" : "pointer",
         opacity: toggling ? 0.4 : 1,
         flexShrink: 0,
-        transition: "all 0.2s ease",
-        ...(enabled
-          ? { background: "linear-gradient(135deg, #3dba6e, #2da05a)", boxShadow: "0 0 8px rgba(61,186,110,0.3)" }
-          : { background: "rgba(255,255,255,0.08)", boxShadow: "inset 0 0 0 1px var(--border-medium)" }),
+        transition: "all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+        background: enabled ? "linear-gradient(135deg, #3dba6e, #2da05a)" : "rgba(255,255,255,0.08)",
+        boxShadow: enabled 
+          ? "0 0 10px rgba(61,186,110,0.4), inset 0 1px 1px rgba(255,255,255,0.2)" 
+          : "inset 0 1px 3px rgba(0,0,0,0.4), 0 1px 1px rgba(255,255,255,0.05)",
       }}
     >
       <span style={{
         position: "absolute", top: "50%",
-        transform: `translateY(-50%) translateX(${enabled ? "15px" : "2px"})`,
-        width: 13, height: 13,
+        transform: `translateY(-50%) translateX(${enabled ? "17px" : "2px"})`,
+        width: 14, height: 14,
         background: "white", borderRadius: "50%",
-        transition: "transform 0.2s cubic-bezier(0.34,1.56,0.64,1)",
+        transition: "transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
         display: "block",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.5)",
+        boxShadow: "1px 1px 3px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.8)",
       }} />
     </button>
   );
@@ -233,31 +235,31 @@ export default function HomePage({ search = "" }: { search?: string }) {
   const activeTools = tools.filter(t => isEnabled(t.id));
 
   return (
-    <div className="flex-1 flex items-stretch h-full overflow-hidden px-8 pb-8 gap-6 relative">
+    <div className="flex-1 flex items-stretch h-full overflow-hidden px-8 pb-8 gap-6 relative animate-entrance">
       {/* Left Column: Active Tools (Quick Access) */}
-      <div className="flex-1 flex flex-col overflow-y-auto pr-2 pb-8 scrollbar-hide">
-        <div className="mb-4">
-          <h2 className="text-xl font-bold tracking-tight text-[#e5e2e1]">Quick Access</h2>
+      <div className="flex-1 flex flex-col overflow-y-auto pr-2 pb-6 scrollbar-hide">
+        <div className="mb-3">
+          <h2 className="text-lg font-bold tracking-tight text-[#e5e2e1]">Quick Access</h2>
         </div>
 
         {/* Compact Tool Container - Focused on Active Tools */}
-        <div className="bg-[#1c1b1b]/30 rounded-2xl border border-[#414755]/10 p-4">
+        <div className="card-skeuo rounded-2xl p-4 noise">
           {activeTools.length === 0 ? (
-            <div className="py-8 text-center">
+            <div className="py-6 text-center">
               <p className="text-xs text-[#c1c6d7]/40 italic">No tools currently active</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 lg:grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
               {activeTools.map(tool => (
                 <div 
                   key={tool.id}
                   onClick={() => openTool(tool.slug)}
-                  className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-white/5 transition-all duration-200 group cursor-pointer"
+                  className="flex flex-col items-center justify-center p-2 rounded-xl hover:bg-white/5 transition-all duration-200 group cursor-pointer"
                 >
-                <div className="mb-2 group-hover:scale-105 transition-transform duration-200">
-                    <SharedIcon tool={tool} size={40} />
+                  <div className="mb-1.5 transition-transform duration-200 group-hover:scale-110">
+                    <SharedIcon tool={tool} size={36} />
                   </div>
-                  <span className="text-[11px] font-medium text-[#c1c6d7] text-center line-clamp-1 group-hover:text-[#e5e2e1] transition-colors">{tool.name}</span>
+                  <span className="text-[10px] font-medium text-[#c1c6d7] text-center line-clamp-1 group-hover:text-[#e5e2e1] transition-colors">{tool.name}</span>
                 </div>
               ))}
             </div>
@@ -266,10 +268,10 @@ export default function HomePage({ search = "" }: { search?: string }) {
       </div>
 
       {/* Right Sidebar: ALL Installed Tools */}
-      <aside className="w-60 flex flex-col h-full bg-[#0b0b0b] rounded-2xl border border-[#414755]/10 flex-shrink-0 overflow-hidden">
-        <div className="p-5 border-b border-[#414755]/10 flex justify-between items-center">
+      <aside className="w-72 flex flex-col h-full container-skeuo rounded-2xl flex-shrink-0 overflow-hidden noise">
+        <div className="p-5 border-b border-white/5 flex justify-between items-center bg-white/5">
           <h3 className="font-bold text-sm text-[#e5e2e1] tracking-tight">Installed Tools</h3>
-          <button className="p-1 rounded-md hover:bg-white/5 text-[#c1c6d7]">
+          <button className="p-1.5 rounded-lg hover:bg-white/10 text-[#c1c6d7] btn-skeuo">
             <Icons.Filter className="w-4 h-4" />
           </button>
         </div>
@@ -280,7 +282,7 @@ export default function HomePage({ search = "" }: { search?: string }) {
               <p className="text-xs text-[#c1c6d7]/40">No tools installed</p>
             </div>
           ) : installedTools.map(tool => (
-            <div key={tool.id} className="px-4 py-2 hover:bg-white/5 flex items-center justify-between border-b border-[#414755]/5 group cursor-pointer" onClick={() => openTool(tool.slug)}>
+            <div key={tool.id} className="px-4 py-2.5 hover:bg-white/5 flex items-center justify-between border-b border-white/5 group cursor-pointer transition-colors" onClick={() => openTool(tool.slug)}>
               <div 
                 className="flex items-center gap-2.5 overflow-hidden" 
               >
@@ -291,19 +293,24 @@ export default function HomePage({ search = "" }: { search?: string }) {
               <button
                 disabled={isToggling(tool.id)}
                 onClick={(e) => { e.stopPropagation(); toggle(tool.id); }}
-                className={`w-8 h-4 rounded-full relative flex items-center px-0.5 transition-all duration-200 flex-shrink-0 ${isEnabled(tool.id) ? 'bg-[#3dba6e] status-glow-green' : 'bg-[#353534]'}`}
+                className={`w-9 h-5 rounded-full relative flex items-center px-1 transition-all duration-300 flex-shrink-0 ${isEnabled(tool.id) ? 'bg-[#3dba6e] status-glow-green toggle-skeuo-on' : 'bg-[#353534] toggle-skeuo'}`}
+                style={{
+                  boxShadow: isEnabled(tool.id) 
+                    ? "0 0 8px rgba(61,186,110,0.5), inset 0 1px 1px rgba(255,255,255,0.2)"
+                    : "inset 0 1px 2px rgba(0,0,0,0.4)"
+                }}
               >
-                <div className={`w-3 h-3 bg-white rounded-full shadow-sm transition-all duration-200 ${isEnabled(tool.id) ? 'ml-auto' : 'ml-0'}`} />
+                <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transition-all duration-300 ${isEnabled(tool.id) ? 'ml-auto' : 'ml-0'}`} />
               </button>
             </div>
           ))}
         </div>
 
         {/* CTA Footer */}
-        <div className="p-4 bg-[#0b0b0b] border-t border-[#414755]/10">
-          <Link to="/explore" className="w-full py-2.5 px-4 rounded-xl border border-[#414755]/15 hover:border-[#adc6ff]/40 hover:bg-white/5 flex items-center justify-center gap-2 transition-all group no-underline bg-[#1A1A1A]/20">
-            <span className="text-xs font-semibold text-[#c1c6d7] group-hover:text-[#e5e2e1]">Browse more tools</span>
-            <Icons.ArrowRight className="w-3 h-3 text-[#c1c6d7] group-hover:translate-x-0.5 transition-transform" />
+        <div className="p-4 bg-white/5 border-t border-white/5">
+          <Link to="/explore" className="w-full py-2.5 px-4 rounded-xl border border-white/10 btn-skeuo flex items-center justify-center gap-2 transition-all group no-underline text-[#c1c6d7] hover:text-[#e5e2e1]">
+            <span className="text-xs font-semibold">Browse more tools</span>
+            <Icons.ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
       </aside>

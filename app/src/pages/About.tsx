@@ -3,11 +3,15 @@ export default function AboutPage() {
     <div className="flex flex-col bg-[#0d0d0d]" style={{ height: "100%", overflow: "hidden", minHeight: 0 }}>
 
       {/* Page header */}
-      <div
-        className="flex-shrink-0 flex items-center px-6"
-        style={{ height: 56, borderBottom: "1px solid #1e1e1e" }}
-      >
-        <h1 className="text-[20px] font-semibold text-[#e8e8e8]">About</h1>
+      <div style={{
+          flexShrink: 0,
+          display: "flex", alignItems: "center",
+          padding: "18px 24px 14px",
+          borderBottom: "1px solid var(--border-subtle)",
+      }}>
+          <h1 style={{ fontSize: 20, fontWeight: 600, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.3px" }}>
+              About
+          </h1>
       </div>
 
       <main className="flex-1 overflow-y-auto px-5 py-5 animate-in fade-in slide-in-from-bottom-2 duration-300">

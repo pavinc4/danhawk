@@ -12,7 +12,7 @@ import CreateTool from "./pages/Create";
 import ToolDetail from "./pages/ToolDetail";
 import Launcher from "./pages/launcher";
 import LauncherPage from "./pages/launcher"; // Just to be sure we have the component
-import { Bell } from "lucide-react";
+import * as Icons from "lucide-react";
 import { ToolModalContext } from "./context/ToolModalContext";
 
 // ── Tool Detail Modal Context
@@ -39,26 +39,25 @@ function FloatingWindow({ isOpen, onClose, children }: { isOpen: boolean; onClos
   if (!isOpen && anim === "out") return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
       <div onClick={close} 
-        className={`absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity duration-200 ${anim === "in" ? "opacity-100" : "opacity-0"}`} 
+        className={`absolute inset-0 bg-black/40 backdrop-blur-[4px] transition-opacity duration-300 ${anim === "in" ? "opacity-100" : "opacity-0"}`} 
       />
       <div onClick={e => e.stopPropagation()} 
-        className={`relative z-10 w-[min(800px,calc(100vw-48px))] h-[min(680px,calc(100vh-48px))] bg-[#0d0d0d] border border-white/10 rounded-xl shadow-2xl overflow-hidden flex flex-col transition-all duration-200 ${anim === "in" ? "opacity-100 scale-100" : "opacity-0 scale-[0.97] translate-y-2"}`}>
+        className={`relative z-10 w-full max-w-4xl h-full max-h-[85vh] container-skeuo rounded-[24px] shadow-[0_40px_100px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col transition-all duration-300 noise ${anim === "in" ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-[0.95] translate-y-8"}`}>
         
-        {/* macOS-style close button (Red circle) */}
+        {/* Close Button - Skeuomorphic edition */}
         <button 
           onClick={close}
-          className="absolute top-4 right-4 z-[210] w-6 h-6 rounded-full bg-[#ff5f57] hover:bg-[#ff5f57]/80 flex items-center justify-center transition-colors shadow-lg group"
-          title="Close"
+          className="absolute top-5 right-5 z-[210] w-7 h-7 rounded-lg btn-skeuo border border-white/5 flex items-center justify-center transition-all group active:scale-90"
+          title="Close (ESC)"
         >
-          <svg width="8" height="8" viewBox="0 0 10 10">
-            <line x1="1" y1="1" x2="9" y2="9" stroke="black" strokeWidth="2.5" strokeLinecap="round" />
-            <line x1="9" y1="1" x2="1" y2="9" stroke="black" strokeWidth="2.5" strokeLinecap="round" />
-          </svg>
+          <Icons.X className="w-3.5 h-3.5 text-[#787878] group-hover:text-[#ff5f57] transition-colors" strokeWidth={3} />
         </button>
 
-        {children}
+        <div className="flex-1 overflow-hidden min-h-0 pt-2">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -173,55 +172,38 @@ function SearchHeader({ search, setSearch, searchFocused, setSearchFocused }: {
   const inputRef = useRef<HTMLInputElement>(null);
   
   return (
-    <header className="flex justify-between items-center w-full px-8 py-6 z-40 flex-shrink-0">
-      <div className="flex items-center gap-4 flex-1 max-w-xl">
+    <header className="flex items-center w-full px-8 py-6 z-40 flex-shrink-0">
+      <div className="flex items-center gap-4 flex-1 max-w-xl mx-start">
         <div className="relative w-full">
-          <svg
-            style={{
-              position: "absolute",
-              left: 14,
-              top: "50%",
-              transform: "translateY(-50%)",
-              pointerEvents: "none",
-              color: "#c1c6d799",
-              transition: "color 0.15s",
-            }}
-            width="14" height="14" viewBox="0 0 24 24"
-            fill="none" stroke="currentColor" strokeWidth="2.5"
-            strokeLinecap="round" strokeLinejoin="round"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
+          <Icons.Search
+            className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none transition-colors duration-200 ${searchFocused ? "text-[#007AFF]" : "text-[#787878]"}`}
+            strokeWidth={2.5}
+          />
 
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search tools or files..."
+            placeholder="Search tools, snippets, files..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
-            className="w-full bg-[#0e0e0e] border border-[#414755]/10 rounded-xl py-2 pl-10 pr-16 text-sm focus:outline-none focus:ring-1 focus:ring-[#adc6ff]/30 transition-all placeholder:text-[#c1c6d7]/40"
+            className="w-full bg-[#0e0e0e]/50 border border-white/5 rounded-2xl py-2.5 pl-12 pr-16 text-[13px] focus:outline-none transition-all placeholder:text-[#555] subpixel-antialiased input-skeuo"
           />
 
           {!search && (
-            <div className={`absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none transition-opacity duration-150 ${searchFocused ? 'opacity-0' : 'opacity-100'}`}>
-              <kbd className="text-[10px] font-mono bg-[#201f1f] px-1.5 py-0.5 rounded text-[#c1c6d7]/60 border border-[#414755]/20">⌘</kbd>
-              <kbd className="text-[10px] font-mono bg-[#201f1f] px-1.5 py-0.5 rounded text-[#c1c6d7]/60 border border-[#414755]/20">K</kbd>
+            <div className={`absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none transition-all duration-300 ${searchFocused ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0'}`}>
+              <kbd className="text-[10px] font-bold bg-[#1c1c1c] px-1.5 py-0.5 rounded-lg text-[#555] border border-white/5 shadow-inner">⌘</kbd>
+              <kbd className="text-[10px] font-bold bg-[#1c1c1c] px-1.5 py-0.5 rounded-lg text-[#555] border border-white/5 shadow-inner">K</kbd>
             </div>
           )}
 
           {search && (
             <button
               onMouseDown={e => { e.preventDefault(); setSearch(""); inputRef.current?.focus(); }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#c1c6d7]/60 hover:text-[#e5e2e1] transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 rounded-lg flex items-center justify-center btn-skeuo text-[#555] hover:text-[#e8e8e8] transition-all"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
+              <Icons.X className="w-2.5 h-2.5" strokeWidth={3} />
             </button>
           )}
         </div>

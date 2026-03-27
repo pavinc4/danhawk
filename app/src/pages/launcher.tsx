@@ -16,14 +16,12 @@ async function hideLauncher() {
 // ── Icon helper — IDENTICAL TO HOME.TSX ──────────────────────
 function ToolIcon({ tool }: { tool: Tool }) {
     if (tool.iconFile) {
-        // Match Home.tsx: width 36 height 36 for image
-        // Check if iconFile already has data: prefix
         const src = tool.iconFile.startsWith("data:") ? tool.iconFile : `data:image/png;base64,${tool.iconFile}`;
         return (
             <img
                 src={src}
                 alt={tool.name}
-                style={{ width: 36, height: 36, objectFit: "contain" }}
+                style={{ width: 32, height: 32, objectFit: "contain" }}
             />
         );
     }
@@ -31,12 +29,12 @@ function ToolIcon({ tool }: { tool: Tool }) {
     const LucideIcon = (Icons as unknown as Record<string, React.ComponentType<{ size?: number; color?: string; style?: any }>>)[tool.icon || "Puzzle"];
     return (
         <div style={{
-            width: 44, height: 44, borderRadius: 12,
+            width: 36, height: 36, borderRadius: 10,
             background: tool.iconBg || "rgba(255,255,255,0.05)",
             display: "flex", alignItems: "center", justifyContent: "center",
             flexShrink: 0,
         }}>
-            {LucideIcon && <LucideIcon size={20} color={tool.iconColor || "#888"} />}
+            {LucideIcon && <LucideIcon size={18} color={tool.iconColor || "#888"} />}
         </div>
     );
 }
@@ -59,9 +57,9 @@ function LauncherCard({ tool, isSelected, isOpening, onSelect, onClick }: {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 8,
-                padding: "14px 8px 10px",
-                borderRadius: 12,
+                gap: 6,
+                padding: "10px 6px 8px",
+                borderRadius: 10,
                 cursor: "pointer",
                 transition: "all 0.15s ease",
             }}
@@ -69,25 +67,24 @@ function LauncherCard({ tool, isSelected, isOpening, onSelect, onClick }: {
             <div style={{ position: "relative" }}>
                <ToolIcon tool={tool} />
                
-               {/* Enabled indicator — Home.tsx style dot */}
                {tool.enabled && (
                    <span style={{
                        position: "absolute",
-                       bottom: -2,
-                       right: -2,
-                       width: 8,
-                       height: 8,
+                       bottom: -1,
+                       right: -1,
+                       width: 7,
+                       height: 7,
                        borderRadius: "50%",
                        background: "#3dba6e",
-                       border: "2px solid #0c0c0e",
-                       boxShadow: "0 0 6px rgba(61,186,110,0.4)",
+                       border: "1.5px solid #0c0c0e",
+                       boxShadow: "0 0 4px rgba(61,186,110,0.4)",
                    }} />
                )}
 
                {isOpening && (
                    <div style={{
                        position: "absolute",
-                       inset: -4,
+                       inset: -3,
                        borderRadius: "50%",
                        border: "2px solid #5ba3e8",
                        borderTopColor: "transparent",
@@ -97,11 +94,11 @@ function LauncherCard({ tool, isSelected, isOpening, onSelect, onClick }: {
             </div>
 
             <span style={{
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: 400,
-                color: "inherit", // Managed by CSS
+                color: "inherit",
                 textAlign: "center",
-                lineHeight: 1.3,
+                lineHeight: 1.2,
                 display: "-webkit-box",
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: "vertical",
@@ -119,7 +116,7 @@ function LauncherCard({ tool, isSelected, isOpening, onSelect, onClick }: {
 export default function Launcher() {
     const [query, setQuery] = useState("");
     const [tools, setTools] = useState<Tool[]>([]);
-    const [selected, setSelected] = useState(-1); // -1 means no keyboard selection
+    const [selected, setSelected] = useState(-1);
     const [opening, setOpening] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -133,28 +130,20 @@ export default function Launcher() {
         }
     }, []);
 
-    // Initial load + Real-time Sync
     useEffect(() => {
         refreshTools();
-
-        // Listen for changes from other windows/backend
         let unlisten: any;
         import("@tauri-apps/api/event").then(({ listen }) => {
             listen("tools-changed", () => refreshTools()).then(u => unlisten = u);
         });
-
-        // Also refresh whenever this window gains focus (just in case)
         import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
-            const win = getCurrentWindow();
-            win.onFocusChanged(({ focused }) => {
+            getCurrentWindow().onFocusChanged(({ focused }) => {
                 if (focused) refreshTools();
             });
         });
-
         return () => { if (unlisten) unlisten(); };
     }, [refreshTools]);
 
-    // Focus input on mount
     useEffect(() => {
         setTimeout(() => inputRef.current?.focus(), 50);
     }, []);
@@ -166,7 +155,6 @@ export default function Launcher() {
         )
         : tools;
 
-    // Selection resets on query change
     useEffect(() => { 
         if (filtered.length > 0) setSelected(0);
         else setSelected(-1);
@@ -179,21 +167,16 @@ export default function Launcher() {
             await hideLauncher();
             setQuery("");
         } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : String(e);
-            if (msg.includes("non-zero") || msg.includes("open")) {
-                await hideLauncher();
-                setQuery("");
-            }
+            await hideLauncher();
+            setQuery("");
         } finally {
             setOpening(null);
         }
     }, []);
 
-    // Keyboard navigation — adjusted for 4-column grid
     const onKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === "Escape") { hideLauncher(); return; }
         const cols = 4;
-        
         if (e.key === "ArrowDown") { 
             e.preventDefault(); 
             setSelected(s => s === -1 ? 0 : Math.min(s + cols, filtered.length - 1)); 
@@ -217,43 +200,40 @@ export default function Launcher() {
 
     return (
         <div style={{ width: "100vw", height: "100vh", background: "transparent", display: "flex", alignItems: "flex-start", justifyContent: "center", overflow: "hidden" }} onKeyDown={onKeyDown}>
-            <div style={{
+            <div className="container-skeuo noise" style={{
                 width: "100%", height: "100%", borderRadius: 12, overflow: "hidden", 
-                background: "rgba(12, 12, 14, 0.98)", border: "1px solid rgba(255, 255, 255, 0.12)",
-                boxShadow: "0 32px 64px rgba(0,0,0,0.8)", backdropFilter: "blur(40px)", display: "flex", flexDirection: "column",
+                display: "flex", flexDirection: "column",
             }}>
                 {/* Search */}
-                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
-                    <Icons.Search size={18} strokeWidth={2.5} color="rgba(255,255,255,0.4)" />
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
+                    <Icons.Search size={16} strokeWidth={2.5} color="rgba(255,255,255,0.4)" />
                     <input ref={inputRef} type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search tools..." 
-                        style={{ flex: 1, background: "none", border: "none", outline: "none", color: "white", fontSize: 17, fontWeight: 400, caretColor: "#5ba3e8" }} 
+                        className="input-skeuo"
+                        style={{ flex: 1, background: "none", border: "none", outline: "none", color: "white", fontSize: 15, fontWeight: 400, caretColor: "#5ba3e8", padding: "6px 10px", borderRadius: 8 }} 
                     />
-                    <div style={{ background: "rgba(255,255,255,0.05)", padding: "3px 7px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.08)" }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.2)" }}>ESC</span>
+                    <div className="btn-skeuo" style={{ padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.3)" }}>
+                        ESC
                     </div>
                 </div>
 
-                {/* Content area matching Home.tsx structure */}
-                <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 20px", display: "flex", flexDirection: "column" }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.2)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "16px 4px 10px" }}>
+                {/* Content area */}
+                <div style={{ flex: 1, overflowY: "auto", padding: "0 18px 18px", display: "flex", flexDirection: "column" }}>
+                    <p style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.2)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "14px 4px 8px" }}>
                         {query ? "Search Results" : "Quick Access"}
                     </p>
 
-                    {/* The Gradient Container from Home.tsx */}
-                    <div style={{
-                        borderRadius: 16,
-                        background: "linear-gradient(135deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.01) 100%)",
-                        border: "1px solid rgba(255,255,255,0.06)",
-                        padding: "8px",
-                        minHeight: 140,
+                    <div className="card-skeuo noise" style={{
+                        borderRadius: 14,
+                        padding: "6px",
+                        minHeight: 120,
                     }}>
                         {filtered.length === 0 ? (
-                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 0", gap: 10, color: "rgba(255,255,255,0.15)" }}>
-                                <Icons.Zap size={28} />
-                                <p style={{ fontSize: 12, margin: 0 }}>No tools found</p>
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "30px 0", gap: 8, color: "rgba(255,255,255,0.15)" }}>
+                                <Icons.Zap size={24} />
+                                <p style={{ fontSize: 11, margin: 0 }}>No tools found</p>
                             </div>
                         ) : (
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1 }}>
                                 {filtered.map((tool, i) => (
                                     <LauncherCard 
                                         key={tool.id} 
@@ -269,14 +249,15 @@ export default function Launcher() {
                     </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "10px", borderTop: "1px solid rgba(255,255,255,0.05)", gap: 16, flexShrink: 0, background: "rgba(255,255,255,0.02)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.2)" }}>
-                        <span style={{ padding: "1px 4px", background: "rgba(255,255,255,0.08)", borderRadius: 3 }}>↑↓←→</span>
-                        <span>Navigate</span>
+                {/* Footer labels */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "10px", borderTop: "1px solid rgba(255,255,255,0.05)", gap: 12, flexShrink: 0, background: "rgba(255,255,255,0.02)" }}>
+                    <div className="btn-skeuo" style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 7 }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, opacity: 0.5 }}>↑↓←→</span>
+                        <span style={{ fontSize: 9, fontWeight: 600 }}>Navigate</span>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.2)" }}>
-                        <span style={{ padding: "1px 4px", background: "rgba(255,255,255,0.08)", borderRadius: 3 }}>ENTER</span>
-                        <span>Open Tool</span>
+                    <div className="btn-skeuo" style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 7 }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, opacity: 0.5 }}>ENTER</span>
+                        <span style={{ fontSize: 9, fontWeight: 600 }}>Open Tool</span>
                     </div>
                 </div>
             </div>
@@ -287,16 +268,9 @@ export default function Launcher() {
                 body, html, #root { margin: 0; padding: 0; background: transparent !important; }
                 input::placeholder { color: rgba(255,255,255,0.2) !important; }
                 ::-webkit-scrollbar { width: 0px; }
-                
-                .launcher-card {
-                    color: rgba(255,255,255,0.45);
-                    background: transparent;
-                }
-                .launcher-card:hover, .launcher-card.selected {
-                    background: rgba(255,255,255,0.06) !important;
-                    color: rgba(255,255,255,0.9) !important;
-                }
+                .launcher-card { color: rgba(255,255,255,0.45); background: transparent; }
+                .launcher-card:hover, .launcher-card.selected { background: rgba(255,255,255,0.06) !important; color: rgba(255,255,255,0.9) !important; }
             `}</style>
         </div>
     );
-}
+}

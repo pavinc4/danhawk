@@ -28,36 +28,30 @@ function NavLink({
 
   const content = (
     <>
-      <Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} />
-      <span>{label}</span>
-    </>
+        <div className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-300 ${isActive ? "icon-skeuo bg-[#133a67] text-white" : "text-[#787878] group-hover:text-[#e5e2e1]"}`}>
+            <Icon size={16} strokeWidth={isActive ? 2.5 : 1.75} />
+        </div>
+        <span className={`text-[12px] font-bold tracking-tight transition-colors duration-200 ${isActive ? "text-[#e5e2e1]" : "text-[#787878] group-hover:text-[#e5e2e1]"}`}>{label}</span>
+      </>
   );
+
+  const baseClass = `
+    group w-[calc(100%-16px)] mx-2 px-2.5 py-1.5 rounded-xl flex items-center gap-2.5 transition-all duration-300 no-underline
+    ${isActive 
+      ? "pill-skeuo-active shadow-[0_6px_12px_rgba(0,122,255,0.15)]" 
+      : "hover:btn-skeuo hover:bg-white/5"}
+  `;
 
   if (onClick) {
     return (
-      <button
-        onClick={onClick}
-        className={`
-          w-[calc(100%-16px)] mx-2 px-3 py-2 rounded-lg flex items-center gap-3 transition-all duration-150 text-sm font-medium
-          text-[#e5e2e1]/70 hover:bg-[#ffffff]/5 hover:text-[#e5e2e1]
-        `}
-      >
+      <button onClick={onClick} className={baseClass}>
         {content}
       </button>
     );
   }
 
   return (
-    <Link
-      to={to}
-      className={`
-        mx-2 px-3 py-2 rounded-lg flex items-center gap-3 transition-all duration-150 text-sm font-medium
-        ${isActive 
-          ? "bg-[#007AFF]/15 text-[#adc6ff]" 
-          : "text-[#e5e2e1]/70 hover:bg-[#ffffff]/5 hover:text-[#e5e2e1]"}
-      `}
-      style={{ textDecoration: "none" }}
-    >
+    <Link to={to} className={baseClass}>
       {content}
     </Link>
   );
@@ -69,17 +63,20 @@ export function Sidebar({ onOpenSettings, onOpenAbout, onOpenFeedback }: {
   onOpenFeedback: () => void;
 }) {
   return (
-    <aside className="flex flex-col h-full w-40 bg-[#0b0b0b] border-r border-[#ffffff]/5 font-['Inter'] z-50 flex-shrink-0">
+    <aside className="flex flex-col h-full w-40 container-skeuo z-50 flex-shrink-0 noise">
       {/* Brand Header */}
-      <div className="px-6 pt-8 pb-6">
-        <h1 className="text-lg font-bold text-[#e5e2e1] tracking-tighter">DanHawk</h1>
-        <p className="text-[10px] uppercase tracking-[0.2em] text-[#c1c6d7]/50 mt-1">Utility Suite</p>
+      <div className="px-5 pt-8 pb-6 flex flex-col items-center">
+        <div className="w-10 h-10 icon-skeuo rounded-[12px] bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] flex items-center justify-center mb-3 border border-white/10">
+          <h1 className="text-lg font-bold text-[#007AFF] tracking-tighter drop-shadow-[0_2px_4px_rgba(0,122,255,0.4)]">DH</h1>
+        </div>
+        <h1 className="text-[15px] font-black text-[#e5e1e1] tracking-tighter uppercase mb-0.5">DanHawk</h1>
+        <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#007AFF]/60">Utility Suite</p>
       </div>
 
-      <div className="mx-4 h-[1px] bg-white/[0.05] mb-6" />
+      <div className="mx-5 h-[1px] bg-white/[0.03] mb-6 shadow-[0_1px_0_rgba(255,255,255,0.02)]" />
 
       {/* Main Navigation */}
-      <nav className="flex-1 space-y-1">
+      <nav className="flex-1 space-y-1.5">
         {topItems.map(item => (
           <NavLink 
             key={item.to} 
@@ -89,8 +86,10 @@ export function Sidebar({ onOpenSettings, onOpenAbout, onOpenFeedback }: {
         ))}
       </nav>
 
+      <div className="mx-5 h-[1px] bg-white/[0.03] mt-3 mb-3 shadow-[0_1px_0_rgba(255,255,255,0.02)]" />
+
       {/* Footer Navigation */}
-      <div className="pb-8 space-y-1">
+      <div className="pb-8 space-y-1.5">
         {bottomItems.map(item => (
           <NavLink 
             key={item.to} 

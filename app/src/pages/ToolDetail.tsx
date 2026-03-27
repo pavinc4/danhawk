@@ -172,7 +172,7 @@ function UninstallModal({ toolName, onConfirm, onClose, installing }: {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export default function ToolDetailPage() {
+export default function ToolDetailPage({ slug: propSlug, onClose }: { slug?: string, onClose?: () => void }) {
   const params = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>("");
@@ -180,7 +180,8 @@ export default function ToolDetailPage() {
   const [showUninstallModal, setShowUninstallModal] = useState(false);
 
   const { tools, isInstalled, isEnabled, isInstalling, isToggling, install, uninstall, toggle } = useToolStore();
-  const tool = tools.find((t) => t.slug === params.slug);
+  const slug = propSlug || params.slug;
+  const tool = tools.find((t) => t.slug === slug);
 
   if (!tool) return (
     <div className="bg-[#0d0d0d] h-full flex items-center justify-center h-64">
@@ -211,7 +212,7 @@ export default function ToolDetailPage() {
       {/* Back bar — fixed at top, never scrolls */}
       <div className="flex-shrink-0 flex items-center px-4 py-2 border-b border-[#1e1e1e]">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => onClose ? onClose() : navigate(-1)}
           className="flex items-center gap-1.5 p-1.5 hover:bg-[#1c1c1c] rounded-md transition-colors duration-150"
         >
           <ArrowLeft className="w-4 h-4 text-[#555555]" />

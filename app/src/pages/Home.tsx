@@ -4,6 +4,7 @@ import * as Icons from "lucide-react";
 import { ArrowUpDown } from "lucide-react";
 import { useToolStore } from "../store/tool-store";
 import { QuickGrid, ToolIcon as SharedIcon } from "../components/QuickAccess";
+import { useToolModal } from "../App";
 
 type LucideIcon = React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
 
@@ -187,20 +188,23 @@ function QuickCard({ tool, isPinned, onContextMenu }: {
 
 function ToolRow({ tool }: { tool: any }) {
   const { isEnabled, isToggling, toggle } = useToolStore();
+  const { openTool } = useToolModal();
   const enabled = isEnabled(tool.id);
   const toggling = isToggling(tool.id);
   const IconComponent = ((Icons as unknown) as Record<string, LucideIcon>)[tool.icon] ?? Icons.Box;
 
   return (
-    <Link
-      to={`/tool/${tool.slug}`}
+    <div
+      onClick={e => { 
+        if ((e.target as HTMLElement).closest("[data-toggle]")) return;
+        openTool(tool.slug);
+      }}
       style={{
         display: "flex", alignItems: "center", gap: 10,
-        padding: "8px 16px", textDecoration: "none",
+        padding: "8px 16px", cursor: "pointer",
         transition: "background 0.1s ease",
         borderRadius: 8, margin: "1px 8px",
       }}
-      onClick={e => { if ((e.target as HTMLElement).closest("[data-toggle]")) e.preventDefault(); }}
       onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"}
       onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "none"}
     >
@@ -224,7 +228,7 @@ function ToolRow({ tool }: { tool: any }) {
         <ToolToggle enabled={enabled} toggling={toggling}
           onToggle={e => { e.preventDefault(); e.stopPropagation(); toggle(tool.id); }} />
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -233,6 +237,7 @@ function ToolRow({ tool }: { tool: any }) {
 export default function HomePage({ search = "" }: { search?: string }) {
   const { tools, getInstalledTools, isEnabled } = useToolStore();
   const navigate = useNavigate();
+  const { openTool } = useToolModal();
   const [sortOrder, setSortOrder] = useState<"az" | "za" | "active" | "inactive">("az");
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortLabels = { az: "A → Z", za: "Z → A", active: "Active first", inactive: "Inactive first" };
@@ -376,7 +381,8 @@ export default function HomePage({ search = "" }: { search?: string }) {
                 <QuickGrid
                     tools={activeTools}
                     pinnedIds={pinnedIds}
-                    variant="link"
+                    variant="button"
+                    onToolClick={(tool) => openTool(tool.slug)}
                     onToolContextMenu={(e, tool) => {
                         const menuW = 165, menuH = 80;
                         const x = Math.min(e.clientX, window.innerWidth - menuW - 8);
@@ -489,7 +495,7 @@ export default function HomePage({ search = "" }: { search?: string }) {
           menu={contextMenu}
           isPinned={pinnedIds.includes(contextMenu.toolId)}
           onPin={() => togglePin(contextMenu.toolId)}
-          onViewDetails={() => navigate(`/tool/${contextMenu.toolSlug}`)}
+          onViewDetails={() => openTool(contextMenu.toolSlug)}
           onClose={() => setContextMenu(null)}
         />
       )}

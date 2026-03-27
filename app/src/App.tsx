@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, createContext, useContext } from "react";
 import { Sidebar } from "./components/danhawk/header";
 import { ToolStoreProvider } from "./store/tool-store";
 import Home from "./pages/Home";
@@ -12,6 +12,41 @@ import Changelog from "./pages/Changelog";
 import Feedback from "./pages/Feedback";
 import Launcher from "./pages/launcher";
 import LauncherPage from "./pages/launcher"; // Just to be sure we have the component
+
+// ── Tool Detail Modal Context
+interface ToolModalCtx { openTool: (slug: string) => void; closeTool: () => void; activeSlug: string | null; }
+export const ToolModalContext = createContext<ToolModalCtx>({ openTool: () => { }, closeTool: () => { }, activeSlug: null });
+export function useToolModal() { return useContext(ToolModalContext); }
+
+function ToolDetailFloatingWindow({ slug, onClose }: { slug: string; onClose: () => void }) {
+  const [anim, setAnim] = useState<"in" | "out">("out");
+  const close = () => { setAnim("out"); setTimeout(onClose, 200); };
+
+  useEffect(() => {
+    // Trigger entrance animation
+    const raf = requestAnimationFrame(() => setAnim("in"));
+    
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    window.addEventListener("keydown", h);
+    
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("keydown", h);
+    };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
+      <div onClick={close} 
+        className={`absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity duration-200 ${anim === "in" ? "opacity-100" : "opacity-0"}`} 
+      />
+      <div onClick={e => e.stopPropagation()} 
+        className={`relative z-10 w-[min(800px,calc(100vw-48px))] h-[min(680px,calc(100vh-48px))] bg-[#0d0d0d] border border-white/10 rounded-xl shadow-2xl overflow-hidden flex flex-col transition-all duration-200 ${anim === "in" ? "opacity-100 scale-100" : "opacity-0 scale-[0.97] translate-y-2"}`}>
+        <ToolDetail slug={slug} onClose={close} />
+      </div>
+    </div>
+  );
+}
 
 function AppShell() {
   const { pathname } = useLocation();
@@ -26,6 +61,7 @@ function AppShell() {
 
   const isCompiler = pathname.includes("create") || windowLabel === "compiler";
   const isLauncher = pathname.includes("launcher") || windowLabel === "launcher" || window.location.href.includes("launcher");
+  const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const showSearch = pathname === "/" || pathname === "/explore";
@@ -55,50 +91,53 @@ function AppShell() {
   }
 
   return (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      height: "100vh",
-      overflow: "hidden",
-      background: "var(--bg-base)",
-    }}>
-      <TitleBar
-        search={search} setSearch={setSearch}
-        searchFocused={searchFocused} setSearchFocused={setSearchFocused}
-        showSearch={showSearch}
-      />
-
+    <ToolModalContext.Provider value={{ openTool: slug => setActiveSlug(slug), closeTool: () => setActiveSlug(null), activeSlug }}>
       <div style={{
         display: "flex",
-        flex: 1,
+        flexDirection: "column",
+        height: "100vh",
         overflow: "hidden",
-        minHeight: 0,
+        background: "var(--bg-base)",
       }}>
-        <Sidebar />
+        <TitleBar
+          search={search} setSearch={setSearch}
+          searchFocused={searchFocused} setSearchFocused={setSearchFocused}
+          showSearch={showSearch}
+        />
 
-        <div
-          className="bg-obsidian"
-          style={{
-            flex: 1,
-            overflow: "hidden",
-            minWidth: 0,
-            minHeight: 0,
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <Routes>
-            <Route path="/" element={<Home search={search} />} />
-            <Route path="/explore" element={<Explore search={search} />} />
-            <Route path="/tool/:slug" element={<ToolDetail />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/changelog" element={<Changelog />} />
-            <Route path="/feedback" element={<Feedback />} />
-          </Routes>
+        <div style={{
+          display: "flex",
+          flex: 1,
+          overflow: "hidden",
+          minHeight: 0,
+        }}>
+          <Sidebar />
+
+          <div
+            className="bg-obsidian"
+            style={{
+              flex: 1,
+              overflow: "hidden",
+              minWidth: 0,
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <Routes>
+              <Route path="/" element={<Home search={search} />} />
+              <Route path="/explore" element={<Explore search={search} />} />
+              <Route path="/tool/:slug" element={<ToolDetail />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/changelog" element={<Changelog />} />
+              <Route path="/feedback" element={<Feedback />} />
+            </Routes>
+          </div>
         </div>
       </div>
-    </div>
+      {activeSlug && <ToolDetailFloatingWindow slug={activeSlug} onClose={() => setActiveSlug(null)} />}
+    </ToolModalContext.Provider>
   );
 }
 

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import * as Icons from "lucide-react";
 import type { Tool } from "../../lib/types";
 import { useToolStore } from "../../store/tool-store";
+import { useToolModal } from "../../App";
 
 interface ToolCardProps { tool: Tool; }
 type LucideIcon = React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
@@ -119,6 +120,7 @@ function UninstallModal({ tool, onConfirm, onClose, installing }: {
 export function ToolCard({ tool }: ToolCardProps) {
   const { isInstalled, isEnabled, isInstalling, install, uninstall } = useToolStore();
   const navigate = useNavigate();
+  const { openTool } = useToolModal();
   const installed = isInstalled(tool.id);
   const enabled = isEnabled(tool.id);
   const installing = isInstalling(tool.id);
@@ -146,7 +148,7 @@ export function ToolCard({ tool }: ToolCardProps) {
         }}
       >
         {/* Top: icon + name + author + description */}
-        <Link to={`/tool/${tool.slug}`} className="flex gap-3 p-4 flex-1 min-h-0 overflow-hidden">
+        <div onClick={() => openTool(tool.slug)} className="flex gap-3 p-4 flex-1 min-h-0 overflow-hidden cursor-pointer">
           <div className="flex-shrink-0">
             <ToolIcon tool={tool} size={10} />
           </div>
@@ -165,7 +167,7 @@ export function ToolCard({ tool }: ToolCardProps) {
               {tool.description}
             </p>
           </div>
-        </Link>
+        </div>
 
         {/* Bottom: Install button OR Active/Inactive — same position */}
         <div className="flex items-center justify-end px-4 pb-3 pt-0 flex-shrink-0">
@@ -198,7 +200,7 @@ export function ToolCard({ tool }: ToolCardProps) {
           tool={tool}
           installing={installing}
           onConfirm={async () => { await install(tool.id); setShowInstallModal(false); }}
-          onViewDetails={() => { setShowInstallModal(false); navigate(`/tool/${tool.slug}`); }}
+          onViewDetails={() => { setShowInstallModal(false); openTool(tool.slug); }}
           onClose={() => { if (!installing) setShowInstallModal(false); }}
         />
       )}

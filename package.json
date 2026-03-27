@@ -1,0 +1,10 @@
+{
+  "name": "danhawk-root",
+  "private": true,
+  "scripts": {
+    "tauri": "npm --prefix app run tauri",
+    "dev": "npm --prefix app run dev",
+    "build": "npm --prefix app run build",
+    "tauri:dev": "npm --prefix app run tauri dev"
+  }
+}

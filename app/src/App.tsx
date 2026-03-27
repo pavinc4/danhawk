@@ -190,7 +190,7 @@ function TitleBar({ search, setSearch, searchFocused, setSearchFocused, showSear
             left: "50%",
             top: "50%",
             transform: "translate(-50%, -50%)",
-            width: 360,
+            width: 440,
             pointerEvents: "auto",
           }}
           onMouseDown={e => e.stopPropagation()}
@@ -199,15 +199,15 @@ function TitleBar({ search, setSearch, searchFocused, setSearchFocused, showSear
             <svg
               style={{
                 position: "absolute",
-                left: 12,
+                left: 14,
                 top: "50%",
                 transform: "translateY(-50%)",
                 pointerEvents: "none",
-                color: searchFocused ? "var(--accent)" : "var(--text-muted)",
+                color: searchFocused ? "var(--accent)" : "#555",
                 transition: "color 0.15s",
               }}
-              width="13" height="13" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor" strokeWidth="2.2"
+              width="14" height="14" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2.5"
               strokeLinecap="round" strokeLinejoin="round"
             >
               <circle cx="11" cy="11" r="8" />
@@ -217,47 +217,79 @@ function TitleBar({ search, setSearch, searchFocused, setSearchFocused, showSear
             <input
               ref={inputRef}
               type="text"
-              placeholder="Search"
+              placeholder="Search tools or files..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
               style={{
                 width: "100%",
-                height: 30,
-                paddingLeft: 32,
-                paddingRight: search ? 30 : 12,
-                background: searchFocused ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.04)",
-                border: `1px solid ${searchFocused ? "var(--accent)" : "var(--border-subtle)"}`,
-                borderRadius: 999,
+                height: 36,
+                paddingLeft: 40,
+                paddingRight: 64,
+                background: "#0e0e0e",
+                border: "1px solid rgba(65, 71, 85, 0.1)",
+                borderRadius: 12,
                 color: "var(--text-primary)",
-                fontSize: 12.5,
+                fontSize: 13,
                 fontWeight: 400,
                 outline: "none",
                 transition: "all 0.15s ease",
                 boxShadow: searchFocused
-                  ? "0 0 0 3px var(--accent-glow), 0 4px 20px rgba(0,0,0,0.4)"
+                  ? "0 0 0 1px rgba(173, 198, 255, 0.3)"
                   : "none",
               }}
             />
+
+            {!search && (
+              <div style={{
+                display: "flex",
+                gap: 4,
+                position: "absolute",
+                right: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+                pointerEvents: "none",
+                opacity: searchFocused ? 0 : 1,
+                transition: "opacity 0.15s",
+              }}>
+                <div style={{
+                  padding: "2px 6px",
+                  background: "#201f1f",
+                  border: "1px solid rgba(65, 71, 85, 0.2)",
+                  borderRadius: 4,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "rgba(193, 198, 215, 0.6)", fontSize: 10, fontWeight: 500, fontFamily: "monospace"
+                }}>⌘</div>
+                <div style={{
+                  padding: "2px 6px",
+                  background: "#201f1f",
+                  border: "1px solid rgba(65, 71, 85, 0.2)",
+                  borderRadius: 4,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "rgba(193, 198, 215, 0.6)", fontSize: 10, fontWeight: 500, fontFamily: "monospace"
+                }}>K</div>
+              </div>
+            )}
 
             {search && (
               <button
                 onMouseDown={e => { e.preventDefault(); setSearch(""); inputRef.current?.focus(); }}
                 style={{
                   position: "absolute",
-                  right: 10,
+                  right: 12,
                   top: "50%",
                   transform: "translateY(-50%)",
                   background: "none",
                   border: "none",
                   cursor: "pointer",
                   display: "flex",
-                  padding: 0,
+                  padding: 2,
+                  color: "#555",
                 }}
               >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                  stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>

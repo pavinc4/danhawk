@@ -3,31 +3,8 @@ import * as Icons from "lucide-react";
 import type { Tool } from "../lib/types";
 
 // ── Shared Tool Icon ────────────────────────────────────────────────────────
-export function ToolIcon({ tool, size = 44 }: { tool: Tool; size?: number }) {
-  const IconComponent = ((Icons as unknown) as Record<string, any>)[tool.icon] ?? Icons.Box;
-  
-  if (tool.iconFile) {
-    const src = tool.iconFile.startsWith("data:") ? tool.iconFile : `data:image/png;base64,${tool.iconFile}`;
-    return (
-      <img 
-        src={src} 
-        alt={tool.name} 
-        style={{ width: size === 44 ? 36 : size * 0.8, height: size === 44 ? 36 : size * 0.8, objectFit: "contain" }} 
-      />
-    );
-  }
-
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: 12,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      background: tool.iconBg || "rgba(255,255,255,0.05)",
-      flexShrink: 0,
-    }}>
-      <IconComponent style={{ width: size * 0.45, height: size * 0.45, color: tool.iconColor || "#888" }} />
-    </div>
-  );
-}
+import { ToolIcon } from "./danhawk/ToolIcon";
+export { ToolIcon };
 
 // ── Shared Quick Card ───────────────────────────────────────────────────────
 export function ToolCard({ 

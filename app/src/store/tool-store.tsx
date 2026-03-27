@@ -64,18 +64,31 @@ export function ToolStoreProvider({ children }: { children: ReactNode }) {
   // On mount — load from the Rust registry (which is always populated from
   // disk cache at startup). This means tools show immediately without any
   // GitHub call, in both dev and prod.
+  const applyMacIcons = useCallback((items: Tool[]) => {
+    const metaMap: Record<string, Partial<Tool>> = {
+      "any-downloader": { icon: "ArrowDown", iconBg: "#2196F3" },
+      "lock-folder": { icon: "Lock", iconBg: "#9C27B0" },
+      "multikey-shortcuts": { icon: "Zap", iconBg: "#4CAF50" },
+      "native-test": { icon: "FlaskConical", iconBg: "#E91E63" },
+      "open-calculator": { icon: "Calculator", iconBg: "#607D8B" },
+      "ui-zone-tester": { icon: "FlaskConical", iconBg: "#673AB7" } 
+    };
+    return items.map(t => metaMap[t.slug] ? { ...t, ...metaMap[t.slug], iconFile: undefined } : t);
+  }, []);
+
   useEffect(() => {
     loadTools().then(cached => {
-      if (cached.length > 0) {
-        setTools(cached);
+      const enhanced = applyMacIcons(cached);
+      if (enhanced.length > 0) {
+        setTools(enhanced);
         setToolStates(() => {
           const next: Record<string, ToolState> = {};
-          cached.forEach(t => { next[t.id] = { installed: t.installed, enabled: t.enabled }; });
+          enhanced.forEach(t => { next[t.id] = { installed: t.installed, enabled: t.enabled }; });
           return next;
         });
       }
     });
-  }, []);
+  }, [applyMacIcons]);
 
   const isInstalled = (id: string) => toolStates[id]?.installed ?? false;
   const isEnabled = (id: string) => toolStates[id]?.enabled ?? false;

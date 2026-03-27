@@ -3,24 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import * as Icons from "lucide-react";
 import type { Tool } from "../../lib/types";
 import { useToolStore } from "../../store/tool-store";
-import { useToolModal } from "../../App";
+import { useToolModal } from "../../context/ToolModalContext";
+
+import { ToolIcon } from "./ToolIcon";
 
 interface ToolCardProps { tool: Tool; }
 type LucideIcon = React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-
-function ToolIcon({ tool, size = 10 }: { tool: Tool; size?: number }) {
-  const IconComponent = ((Icons as unknown) as Record<string, LucideIcon>)[tool.icon] ?? Icons.Box;
-  const px = `${size * 4}px`;
-  const imgPx = `${size * 3}px`; // custom icons render smaller so they match the visual weight of the coloured box
-  if (tool.iconFile) {
-    return <img src={tool.iconFile} alt={tool.name} style={{ width: imgPx, height: imgPx, objectFit: "contain" }} />;
-  }
-  return (
-    <div style={{ width: px, height: px, borderRadius: 10, backgroundColor: tool.iconBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-      <IconComponent style={{ width: `${size * 2}px`, height: `${size * 2}px`, color: tool.iconColor }} />
-    </div>
-  );
-}
 
 function InstallModal({ tool, onConfirm, onViewDetails, onClose, installing }: {
   tool: Tool; onConfirm: () => void; onViewDetails: () => void; onClose: () => void; installing: boolean;
@@ -32,6 +20,18 @@ function InstallModal({ tool, onConfirm, onViewDetails, onClose, installing }: {
         className="relative bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl w-[340px] p-5 animate-in fade-in zoom-in-95 duration-150"
         onClick={e => e.stopPropagation()}
       >
+        {!installing && (
+          <button 
+            onClick={onClose}
+            className="absolute top-3 right-3 w-5 h-5 rounded-full bg-[#ff5f57] hover:bg-[#ff5f57]/80 flex items-center justify-center transition-colors shadow-lg"
+            title="Close"
+          >
+            <svg width="6" height="6" viewBox="0 0 10 10">
+              <line x1="1" y1="1" x2="9" y2="9" stroke="black" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="9" y1="1" x2="1" y2="9" stroke="black" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
         <div className="flex items-center gap-3 mb-3">
           <ToolIcon tool={tool} size={9} />
           <div className="min-w-0">
@@ -57,7 +57,7 @@ function InstallModal({ tool, onConfirm, onViewDetails, onClose, installing }: {
               <button onClick={onViewDetails} className="flex-1 py-2 text-[12px] font-medium text-[#aaaaaa] border border-[#2a2a2a] rounded-lg hover:border-[#3a3a3a] hover:text-[#e8e8e8] hover:bg-[#1c1c1c] transition-all duration-150">
                 View Details
               </button>
-              <button onClick={onConfirm} className="flex-1 py-2 text-[12px] font-medium text-white bg-[#3b8bdb] rounded-lg hover:bg-[#4a9beb] transition-all duration-150 active:scale-[0.98]">
+              <button onClick={onConfirm} className="flex-1 py-2 text-[12px] font-medium text-[#007AFF] bg-[#091b2f] border border-[#007AFF]/20 rounded-lg hover:border-[#007AFF]/40 transition-all duration-150 active:scale-[0.98]">
                 Install
               </button>
             </div>
@@ -78,6 +78,18 @@ function UninstallModal({ tool, onConfirm, onClose, installing }: {
         className="relative bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl w-[340px] p-5 animate-in fade-in zoom-in-95 duration-150"
         onClick={e => e.stopPropagation()}
       >
+        {!installing && (
+          <button 
+            onClick={onClose}
+            className="absolute top-3 right-3 w-5 h-5 rounded-full bg-[#ff5f57] hover:bg-[#ff5f57]/80 flex items-center justify-center transition-colors shadow-lg"
+            title="Close"
+          >
+            <svg width="6" height="6" viewBox="0 0 10 10">
+              <line x1="1" y1="1" x2="9" y2="9" stroke="black" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="9" y1="1" x2="1" y2="9" stroke="black" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
         <div className="flex items-center gap-3 mb-3">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#2a0a0a] border border-[#c0392b]/20 flex-shrink-0">
             <Icons.Trash2 className="w-4 h-4 text-[#c0392b]" />
@@ -127,73 +139,101 @@ export function ToolCard({ tool }: ToolCardProps) {
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showUninstallModal, setShowUninstallModal] = useState(false);
 
+  // Determine the icon component
+  const IconComponent = ((Icons as unknown) as Record<string, LucideIcon>)[tool.icon] ?? Icons.Box;
+
   return (
     <>
-      <div
-        className="group relative flex flex-col rounded-xl overflow-hidden transition-all duration-200 ease-out"
+      <Link
+        to={`/tool/${tool.slug}`}
+        onClick={e => { e.preventDefault(); openTool(tool.slug); }}
+        className="group relative flex flex-col rounded-[20px] overflow-hidden transition-all duration-300 ease-out no-underline pointer-events-auto touch-auto hover:scale-[1.03] hover:z-50 hover:shadow-[0_20px_40px_rgba(0,0,0,0.6)]"
         style={{
-          height: 168,
-          background: "linear-gradient(135deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.018) 100%)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
+          height: 220,
+          backgroundColor: "rgba(13, 13, 13, 0.9)", // Even darker glassy black
+          backdropFilter: "blur(25px)",
+          WebkitBackdropFilter: "blur(25px)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          display: "flex",
+          flexDirection: "column",
+          padding: "16px"
         }}
         onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, rgba(255,255,255,0.085) 0%, rgba(255,255,255,0.035) 100%)";
-          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.14)";
+          (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(22, 22, 22, 0.95)";
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)";
         }}
         onMouseLeave={e => {
-          (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.018) 100%)";
-          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
+          (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(13, 13, 13, 0.9)";
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)";
         }}
       >
-        {/* Top: icon + name + author + description */}
-        <div onClick={() => openTool(tool.slug)} className="flex gap-3 p-4 flex-1 min-h-0 overflow-hidden cursor-pointer">
-          <div className="flex-shrink-0">
-            <ToolIcon tool={tool} size={10} />
-          </div>
-          <div className="flex-1 min-w-0 overflow-hidden">
-            <h3 className="text-[#e8e8e8] font-semibold text-[13px] leading-tight truncate mb-1 group-hover:text-white transition-colors duration-200">
-              {tool.name}
-            </h3>
-            <div className="flex items-center gap-1.5 text-[11px] text-[#555555] mb-1.5 overflow-hidden whitespace-nowrap">
-              <Icons.User className="w-3 h-3 flex-shrink-0" />
-              <span className="flex-shrink-0">{tool.author}</span>
-            </div>
-            <p
-              className="text-[12px] text-[#787878] leading-[1.5]"
-              style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
-            >
-              {tool.description}
-            </p>
+        {/* Top Icon */}
+        <div className="flex items-start justify-between mb-3 flex-shrink-0">
+          <div
+            style={{
+              width: "40px", height: "40px",
+              borderRadius: "10px",
+              backgroundColor: tool.iconBg || "#007AFF",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.3)"
+            }}
+          >
+            {tool.iconFile ? (
+              <img src={tool.iconFile} alt={tool.name} style={{ width: "20px", height: "20px", objectFit: "contain" }} />
+            ) : (
+              <IconComponent
+                style={{ color: "white", width: "20px", height: "20px" }}
+              />
+            )}
           </div>
         </div>
 
-        {/* Bottom: Install button OR Active/Inactive — same position */}
-        <div className="flex items-center justify-end px-4 pb-3 pt-0 flex-shrink-0">
-          {installed ? (
-            <div className="flex items-center gap-1.5">
-              <span style={{
-                width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-                background: enabled ? "#3dba6e" : "#e04535",
-                display: "inline-block",
-                boxShadow: enabled ? "0 0 6px rgba(61,186,110,0.5)" : "0 0 6px rgba(224,69,53,0.4)",
-              }} />
-              <span className="text-[11px] font-medium" style={{ color: enabled ? "#3dba6e" : "#e04535" }}>
-                {enabled ? "Active" : "Inactive"}
-              </span>
-            </div>
-          ) : (
+        {/* Middle: Content */}
+        <div className="flex-1 min-h-0 flex flex-col mb-3">
+          <h3 className="text-[15px] font-bold text-[#f0f0f0] tracking-tight leading-tight mb-1 truncate">
+            {tool.name}
+          </h3>
+          <div className="flex items-center gap-1 text-[11px] text-[#707070] mb-2">
+            <Icons.User className="w-3 h-3" />
+            <span className="truncate">{tool.author || "DanHawk"}</span>
+          </div>
+          <p className="text-[11px] text-[#909090] leading-[1.4] line-clamp-2">
+            {tool.description}
+          </p>
+        </div>
+
+        {/* Bottom Actions */}
+        <div className="mt-auto pt-1 flex-shrink-0">
+          {!installed ? (
             <button
               disabled={installing}
-              onClick={e => { e.preventDefault(); if (!installing) setShowInstallModal(true); }}
-              className="px-3 py-1 text-[11px] font-medium text-white bg-[#3b8bdb] rounded-md hover:bg-[#4a9beb] transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              onClick={e => { e.preventDefault(); e.stopPropagation(); if (!installing) setShowInstallModal(true); }}
+              className="w-full py-2.5 rounded-[12px] text-[12px] font-bold text-white transition-all duration-200 active:scale-[0.98] disabled:opacity-50 shadow-lg"
+              style={{
+                backgroundColor: "#1A56DB", // Deep theme blue
+                border: "none"
+              }}
             >
-              {installing ? "Installing..." : "Install"}
+              {installing ? "INSTALLING..." : "Install"}
             </button>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold tracking-tighter flex items-center gap-1" style={{ color: enabled ? "#3dba6e" : "#ff5f57" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", boxShadow: "0 0 5px currentColor" }} />
+                  {enabled ? "ACTIVE" : "INACTIVE"}
+                </span>
+              </div>
+              <button
+                onClick={e => { e.preventDefault(); e.stopPropagation(); openTool(tool.slug); }}
+                className="px-5 py-1.5 rounded-[10px] text-[12px] font-bold text-[#e0e0e0] bg-[#2a2a2a] border border-[#3a3a3a] hover:bg-[#353535] active:scale-[0.95] transition-all"
+              >
+                Open
+              </button>
+            </div>
           )}
         </div>
-      </div>
+      </Link>
 
       {showInstallModal && (
         <InstallModal

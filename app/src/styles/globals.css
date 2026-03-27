@@ -1,42 +1,29 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── Design tokens ───────────────────────────────────────────────────────── */
+/* ── Design tokens (Direct from reference) ────────────────────────────── */
 :root {
   --bg-base: #131313;
   --bg-surface: #131313;
-  --bg-elevated: #201f1f;
-  --bg-overlay: #2a2a2a;
-  --bg-hover: rgba(255, 255, 255, 0.05);
-  --bg-active: rgba(255, 255, 255, 0.08);
-
-  --border-subtle: rgba(255, 255, 255, 0.05);
-  --border-medium: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.15);
-
-  --text-primary: #e5e2e1;
-  --text-secondary: #c1c6d7;
-  --text-muted: #8b90a0;
-  --text-ghost: #414755;
-
-  --accent: #adc6ff;
-  --accent-glow: rgba(173, 198, 255, 0.2);
-  --accent-dim: rgba(173, 198, 255, 0.1);
-  --green: #3dba6e;
-  --green-glow: rgba(61, 186, 110, 0.15);
-
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-pill: 999px;
-
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.8);
-  --shadow-glow: 0 0 20px rgba(173, 198, 255, 0.1);
+  --bg-surface-lowest: #0e0e0e;
+  --bg-surface-low: #1c1b1b;
+  --bg-surface-container: #201f1f;
+  --bg-surface-high: #2a2a2a;
+  --bg-surface-highest: #353534;
+  
+  --on-surface: #e5e2e1;
+  --on-surface-variant: #c1c6d7;
+  --outline: #8b90a0;
+  --outline-variant: #414755;
+  
+  --primary: #adc6ff;
+  --primary-container: #4b8eff;
+  --on-primary: #002e69;
+  --accent: #007AFF; /* Standard Apple Blue used in highlights */
+  
+  --status-green: #3dba6e;
 }
 
 /* ── Reset / base ────────────────────────────────────────────────────────── */
@@ -44,43 +31,47 @@
 *::before,
 *::after {
   box-sizing: border-box;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-html {
-  height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
-}
-
-body {
+html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
-  overscroll-behavior: none;
-  font-family: 'Inter', sans-serif;
-}
-
-#root {
-  height: 100%;
-  overflow: hidden;
+  overflow: hidden; /* Restored for Desktop App stability */
   overscroll-behavior: none;
   background: var(--bg-base);
-  color: var(--text-primary);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  color: var(--on-surface);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  font-size: 14px;
-  line-height: 1.5;
+}
+
+/* Kill bounce only on specific containers that shouldn't overflow */
+.no-bounce { overscroll-behavior: none; }
+
+.obsidian-gradient {
+  background: linear-gradient(180deg, #1A1A1A 0%, #0B0B0B 100%);
+}
+
+.glass-panel {
+  background: rgba(53, 53, 52, 0.6);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+}
+
+.status-glow-green {
+  box-shadow: 0 0 12px 0 rgba(173, 198, 255, 0.2);
 }
 
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #414755; border-radius: 10px; }
 
-/* Kill bounce on every scrollable element */
-* {
-  overscroll-behavior: none;
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 /* Remove ALL default scrollbar styling in WebView */

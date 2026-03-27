@@ -98,10 +98,10 @@ function InstallModal({ toolName, onConfirm, onClose, installing }: {
       <div className="relative bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl w-[340px] p-5 animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#0d2a4a] border border-[#1a4a7a]/30 flex-shrink-0">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#091b2f] border border-[#007AFF]/20 flex-shrink-0">
             {installing
-              ? <svg className="animate-spin w-4 h-4 text-[#3b8bdb]" viewBox="0 0 24 24" fill="none"><circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" /><path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" /></svg>
-              : <Icons.Download className="w-4 h-4 text-[#3b8bdb]" />}
+              ? <svg className="animate-spin w-4 h-4 text-[#007AFF]" viewBox="0 0 24 24" fill="none"><circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" /><path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" /></svg>
+              : <Icons.Download className="w-4 h-4 text-[#007AFF]" />}
           </div>
           <div>
             <p className="text-[13px] font-semibold text-[#e8e8e8]">{installing ? "Installing..." : "Install tool?"}</p>
@@ -111,7 +111,7 @@ function InstallModal({ toolName, onConfirm, onClose, installing }: {
         {installing ? (
           <div className="py-2 space-y-3">
             <div className="h-1 bg-[#1e1e1e] rounded-full overflow-hidden">
-              <div className="h-full bg-[#3b8bdb] rounded-full" style={{ width: "40%", animation: "installBar 1.2s ease-in-out infinite" }} />
+              <div className="h-full bg-[#091b2f] rounded-full shadow-[0_0_8px_rgba(0,122,255,0.4)]" style={{ width: "40%", animation: "installBar 1.2s ease-in-out infinite" }} />
             </div>
             <style>{`@keyframes installBar { 0% { transform:translateX(-150%) } 100% { transform:translateX(400%) } }`}</style>
             <p className="text-[12px] text-[#555555] text-center">Setting up tool...</p>
@@ -121,7 +121,7 @@ function InstallModal({ toolName, onConfirm, onClose, installing }: {
             <p className="text-[12px] text-[#787878] mb-4 leading-relaxed">Ready to install this tool?</p>
             <div className="flex gap-2">
               <button onClick={onClose} className="flex-1 py-2 text-[12px] font-medium text-[#aaaaaa] border border-[#2a2a2a] rounded-lg hover:border-[#3a3a3a] hover:text-[#e8e8e8] hover:bg-[#1c1c1c] transition-all duration-150">Cancel</button>
-              <button onClick={onConfirm} className="flex-1 py-2 text-[12px] font-medium text-white bg-[#3b8bdb] rounded-lg hover:bg-[#4a9beb] transition-all duration-150 active:scale-[0.98]">Install</button>
+              <button onClick={onConfirm} className="flex-1 py-2 text-[12px] font-medium text-[#adc6ff] bg-[#091b2f] border border-[#007AFF]/20 rounded-lg hover:border-[#007AFF]/30 transition-all duration-150 active:scale-[0.98]">Install</button>
             </div>
           </>
         )}
@@ -176,7 +176,6 @@ export default function ToolDetailPage({ slug: propSlug, onClose }: { slug?: str
   const params = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>("");
-  const [showInstallModal, setShowInstallModal] = useState(false);
   const [showUninstallModal, setShowUninstallModal] = useState(false);
 
   const { tools, isInstalled, isEnabled, isInstalling, isToggling, install, uninstall, toggle } = useToolStore();
@@ -251,8 +250,8 @@ export default function ToolDetailPage({ slug: propSlug, onClose }: { slug?: str
               {!installed ? (
                 <button
                   disabled={installing}
-                  onClick={() => setShowInstallModal(true)}
-                  className="px-4 py-1.5 bg-[#3b8bdb] text-white rounded-md text-[12px] font-medium hover:bg-[#4a9beb] active:scale-[0.98] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                  onClick={() => install(tool.id)}
+                  className="px-4 py-1.5 bg-[#091b2f] text-[#adc6ff] border border-[#007AFF]/20 rounded-md text-[12px] font-medium hover:border-[#007AFF]/40 hover:bg-[#0c243d] active:scale-[0.98] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {installing ? <><Spinner />Installing...</> : "Install"}
                 </button>
@@ -279,9 +278,9 @@ export default function ToolDetailPage({ slug: propSlug, onClose }: { slug?: str
               {allTabs.map((tab) => (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                   className={cn("pb-3 text-[13px] font-medium transition-colors duration-150 relative",
-                    currentTab === tab.id ? "text-[#3b8bdb]" : "text-[#888888] hover:text-[#e8e8e8]")}>
+                    currentTab === tab.id ? "text-[#adc6ff]" : "text-[#888888] hover:text-[#e8e8e8]")}>
                   {tab.label}
-                  {currentTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3b8bdb] rounded-full" />}
+                  {currentTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#007AFF] rounded-full shadow-[0_0_8px_rgba(0,122,255,0.4)]" />}
                 </button>
               ))}
             </div>
@@ -319,12 +318,6 @@ export default function ToolDetailPage({ slug: propSlug, onClose }: { slug?: str
         </main>
       </div>{/* end scrollable content */}
 
-      {showInstallModal && (
-        <InstallModal toolName={tool.name} installing={installing}
-          onConfirm={async () => { await install(tool.id); setShowInstallModal(false); }}
-          onClose={() => { if (!installing) setShowInstallModal(false); }}
-        />
-      )}
       {showUninstallModal && (
         <UninstallModal toolName={tool.name} installing={installing}
           onConfirm={async () => { await uninstall(tool.id); setShowUninstallModal(false); }}
@@ -333,4 +326,4 @@ export default function ToolDetailPage({ slug: propSlug, onClose }: { slug?: str
       )}
     </div>
   );
-}
+}

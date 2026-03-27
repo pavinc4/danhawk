@@ -12,68 +12,95 @@ const bottomItems = [
   { to: "/about", label: "About", icon: Info },
 ];
 
-function NavLink({ to, label, icon: Icon }: { to: string; label: string; icon: React.ComponentType<any> }) {
+function NavLink({ 
+  to, 
+  label, 
+  icon: Icon, 
+  onClick 
+}: { 
+  to: string; 
+  label: string; 
+  icon: React.ComponentType<any>;
+  onClick?: () => void;
+}) {
   const { pathname } = useLocation();
   const isActive = pathname === to || (to !== "/" && pathname.startsWith(to));
+
+  const content = (
+    <>
+      <Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} />
+      <span>{label}</span>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        className={`
+          w-[calc(100%-16px)] mx-2 px-3 py-2 rounded-lg flex items-center gap-3 transition-all duration-150 text-sm font-medium
+          text-[#e5e2e1]/70 hover:bg-[#ffffff]/5 hover:text-[#e5e2e1]
+        `}
+      >
+        {content}
+      </button>
+    );
+  }
 
   return (
     <Link
       to={to}
-      style={{
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        gap: 4, padding: "10px 4px",
-        borderRadius: 10, textDecoration: "none",
-        transition: "background 0.15s ease",
-        background: isActive
-          ? "linear-gradient(135deg, rgba(59,139,219,0.22) 0%, rgba(59,139,219,0.12) 100%)"
-          : "none",
-        boxShadow: isActive ? "inset 0 0 0 1px rgba(59,139,219,0.25)" : "none",
-      }}
-      onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"; }}
-      onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "none"; }}
+      className={`
+        mx-2 px-3 py-2 rounded-lg flex items-center gap-3 transition-all duration-150 text-sm font-medium
+        ${isActive 
+          ? "bg-[#007AFF]/15 text-[#adc6ff]" 
+          : "text-[#e5e2e1]/70 hover:bg-[#ffffff]/5 hover:text-[#e5e2e1]"}
+      `}
+      style={{ textDecoration: "none" }}
     >
-      <Icon
-        size={16}
-        strokeWidth={isActive ? 2.2 : 1.75}
-        style={{ color: isActive ? "#5ba3e8" : "var(--text-muted)", transition: "color 0.15s", flexShrink: 0 }}
-      />
-      <span style={{
-        fontSize: 10, fontWeight: isActive ? 600 : 400,
-        letterSpacing: "0.01em",
-        color: isActive ? "#5ba3e8" : "var(--text-ghost)",
-        transition: "color 0.15s", lineHeight: 1,
-      }}>
-        {label}
-      </span>
+      {content}
     </Link>
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ onOpenSettings, onOpenAbout, onOpenFeedback }: { 
+  onOpenSettings: () => void; 
+  onOpenAbout: () => void;
+  onOpenFeedback: () => void;
+}) {
   return (
-    <aside style={{
-      flexShrink: 0, width: 68,
-      background: "linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%), #090909",
-      borderRight: "1px solid var(--border-subtle)",
-      display: "flex", flexDirection: "column",
-      paddingTop: 6, paddingBottom: 8,
-      userSelect: "none",
-    }}>
-      {/* Top — Home, Explore, Settings */}
-      <nav style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 6px" }}>
-        {topItems.map(item => <NavLink key={item.to} {...item} />)}
+    <aside className="flex flex-col h-full w-40 bg-[#0b0b0b] border-r border-[#ffffff]/5 font-['Inter'] z-50 flex-shrink-0">
+      {/* Brand Header */}
+      <div className="px-6 pt-8 pb-6">
+        <h1 className="text-lg font-bold text-[#e5e2e1] tracking-tighter">DanHawk</h1>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-[#c1c6d7]/50 mt-1">Utility Suite</p>
+      </div>
+
+      <div className="mx-4 h-[1px] bg-white/[0.05] mb-6" />
+
+      {/* Main Navigation */}
+      <nav className="flex-1 space-y-1">
+        {topItems.map(item => (
+          <NavLink 
+            key={item.to} 
+            {...item} 
+            onClick={item.to === "/settings" ? onOpenSettings : undefined} 
+          />
+        ))}
       </nav>
 
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
-
-      {/* Bottom — Feedback, About */}
-      <nav style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 6px" }}>
-        {bottomItems.map(item => <NavLink key={item.to} {...item} />)}
-      </nav>
+      {/* Footer Navigation */}
+      <div className="pb-8 space-y-1">
+        {bottomItems.map(item => (
+          <NavLink 
+            key={item.to} 
+            {...item} 
+            onClick={item.to === "/about" ? onOpenAbout : item.to === "/feedback" ? onOpenFeedback : undefined}
+          />
+        ))}
+      </div>
     </aside>
   );
 }
 
-export function Header() { return <Sidebar />; }
+export function Header(props: any) { return <Sidebar {...props} />; }

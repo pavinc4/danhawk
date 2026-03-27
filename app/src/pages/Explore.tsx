@@ -59,7 +59,7 @@ export default function ExplorePage({ search = "" }: { search?: string }) {
   const sortLabels: Record<SortOrder, string> = { az: "A → Z", za: "Z → A", installed: "Installed first" };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", minHeight: 0 }}
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden"
       onClick={() => setShowSortMenu(false)}>
 
       {/* Page header */}
@@ -116,8 +116,20 @@ export default function ExplorePage({ search = "" }: { search?: string }) {
                 cursor: "pointer",
                 transition: "all 0.12s",
               }}
-              onMouseEnter={e => { if (resolvedCategory !== cat) (e.currentTarget as HTMLElement).style.borderColor = "var(--border-medium)"; }}
-              onMouseLeave={e => { if (resolvedCategory !== cat) (e.currentTarget as HTMLElement).style.borderColor = "var(--border-subtle)"; }}
+              onMouseEnter={e => { 
+                if (resolvedCategory !== cat) {
+                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.15)";
+                  (e.currentTarget as HTMLElement).style.background = "#1a1a1a";
+                  (e.currentTarget as HTMLElement).style.color = "#ffffff";
+                }
+              }}
+              onMouseLeave={e => { 
+                if (resolvedCategory !== cat) {
+                  (e.currentTarget as HTMLElement).style.borderColor = "var(--border-subtle)";
+                  (e.currentTarget as HTMLElement).style.background = "none";
+                  (e.currentTarget as HTMLElement).style.color = "var(--text-muted)";
+                }
+              }}
             >
               {cat}
             </button>
@@ -177,43 +189,24 @@ export default function ExplorePage({ search = "" }: { search?: string }) {
         </div>
       </div>
 
-      {/* Tools grid */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "0 24px 32px" }}>
+      {/* Tools grid - Force scrollable area */}
+      <div 
+        className="flex-1 min-h-0 overflow-y-auto px-6 pt-4 pb-8 outline-none relative z-10 overscroll-contain"
+        tabIndex={-1}
+      >
         {loading ? (
           <p style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 12, paddingTop: 48 }}>Loading...</p>
         ) : tools.length === 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "64px 0", gap: 12 }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: 14,
-              background: "var(--bg-hover)",
-              border: "1px solid var(--border-subtle)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <RefreshCw size={18} style={{ color: "var(--text-muted)" }} />
-            </div>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>No tools loaded yet</p>
-            <button
-              onClick={handleRefresh} disabled={refreshing}
-              style={{
-                padding: "7px 16px", background: "var(--accent)", color: "white",
-                border: "none", borderRadius: 8, fontSize: 12, fontWeight: 500,
-                cursor: "pointer", opacity: refreshing ? 0.5 : 1,
-                display: "flex", alignItems: "center", gap: 6,
-              }}
-            >
-              <RefreshCw size={12} style={{ animation: refreshing ? "spin 1s linear infinite" : "none" }} />
-              {refreshing ? "Loading..." : "Load from GitHub"}
-            </button>
+          <div className="flex flex-col items-center gap-4 py-16">
+            <p className="text-[13px] text-[#555555]">No tools found</p>
           </div>
         ) : filteredTools.length > 0 ? (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 10,
-            opacity: refreshing ? 0.4 : 1,
-            pointerEvents: refreshing ? "none" : "auto",
-            transition: "opacity 0.2s",
-          }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+            style={{
+              opacity: refreshing ? 0.4 : 1,
+              pointerEvents: refreshing ? "none" : "auto",
+              transition: "opacity 0.2s",
+            }}>
             {filteredTools.map((tool) => (
               <div key={tool.id}>
                 <ToolCard tool={tool} />

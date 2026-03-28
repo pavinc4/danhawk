@@ -13,7 +13,7 @@ export function ToolIcon({ tool, size = 44 }: { tool: Tool; size?: number }) {
       className="icon-skeuo"
       style={{ 
         width: px, height: px, 
-        borderRadius: size <= 32 ? "8px" : "22%",
+        borderRadius: size <= 32 ? "10px" : "28%",
         background: tool.iconBg || "#3b82f6",
         display: "flex", alignItems: "center", justifyContent: "center", 
         flexShrink: 0,

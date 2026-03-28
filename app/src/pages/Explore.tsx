@@ -59,8 +59,15 @@ export default function ExplorePage({ search = "" }: { search?: string }) {
   const sortLabels: Record<SortOrder, string> = { az: "A → Z", za: "Z → A", installed: "Installed first" };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden animate-entrance"
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden animate-entrance relative"
       onClick={() => setShowSortMenu(false)}>
+      
+      {/* Absolute click blocker during refresh */}
+      {(refreshing || loading) && (
+        <div className="absolute inset-0 z-[100] cursor-wait pointer-events-auto" />
+      )}
+
+      <div className={`flex-1 flex flex-col min-h-0 ${refreshing ? "opacity-60 animate-pulse transition-opacity duration-300" : ""}`}>
 
       {/* Page header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px 16px", flexShrink: 0 }}>
@@ -202,6 +209,7 @@ export default function ExplorePage({ search = "" }: { search?: string }) {
             {search || resolvedCategory !== "All" ? "No tools match." : "No tools available."}
           </p>
         )}
+      </div>
       </div>
     </div>
   );

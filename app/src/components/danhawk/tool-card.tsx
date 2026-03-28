@@ -147,7 +147,7 @@ export function ToolCard({ tool }: ToolCardProps) {
       <Link
         to={`/tool/${tool.slug}`}
         onClick={e => { e.preventDefault(); openTool(tool.slug); }}
-        className="group relative flex flex-col rounded-[20px] overflow-hidden card-skeuo card-skeuo-hover no-underline pointer-events-auto touch-auto z-10 noise"
+        className="group relative flex flex-col rounded-[20px] overflow-hidden card-skeuo card-skeuo-dark card-skeuo-hover no-underline pointer-events-auto touch-auto z-10 noise"
         style={{
           height: 220,
           display: "flex",

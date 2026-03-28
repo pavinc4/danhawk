@@ -114,7 +114,7 @@ function AppShell() {
       closeTool: () => setActiveSlug(null), 
       activeSlug 
     }}>
-      <div className="flex h-screen overflow-hidden bg-[#131313]">
+      <div className="flex h-screen overflow-hidden obsidian-gradient">
         <Sidebar 
           onOpenSettings={() => setShowSettings(true)}
           onOpenAbout={() => setShowAbout(true)}

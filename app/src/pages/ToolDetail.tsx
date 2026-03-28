@@ -242,7 +242,7 @@ export default function ToolDetailPage({ slug: propSlug, onClose }: { slug?: str
                   onClick={() => install(tool.id)}
                   className="px-5 py-1.5 rounded-xl text-[12px] font-bold btn-skeuo-primary"
                 >
-                  {installing ? <><Spinner />Installing...</> : "Install Tool"}
+                  {installing ? <><Spinner />Installing...</> : "Install"}
                 </button>
               ) : (
                 <>
